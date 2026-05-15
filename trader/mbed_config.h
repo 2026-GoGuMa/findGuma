@@ -22,21 +22,27 @@
 #define __MBED_CONFIG_DATA__
 
 // Configuration parameters
-#define CLOCK_SOURCE                                      USE_PLL_HSE_EXTC|USE_PLL_HSI            // set by target:NUCLEO_F446RE
-#define MBED_CONF_PLATFORM_DEFAULT_SERIAL_BAUD_RATE       9600                                    // set by library:platform
-#define MBED_CONF_PLATFORM_ERROR_ALL_THREADS_INFO         0                                       // set by library:platform
-#define MBED_CONF_PLATFORM_ERROR_FILENAME_CAPTURE_ENABLED 0                                       // set by library:platform
-#define MBED_CONF_PLATFORM_ERROR_HIST_ENABLED             0                                       // set by library:platform
-#define MBED_CONF_PLATFORM_ERROR_HIST_SIZE                4                                       // set by library:platform
-#define MBED_CONF_PLATFORM_FORCE_NON_COPYABLE_ERROR       0                                       // set by library:platform
-#define MBED_CONF_PLATFORM_MAX_ERROR_FILENAME_LEN         16                                      // set by library:platform
-#define MBED_CONF_PLATFORM_POLL_USE_LOWPOWER_TIMER        0                                       // set by library:platform
-#define MBED_CONF_PLATFORM_STDIO_BAUD_RATE                9600                                    // set by library:platform
-#define MBED_CONF_PLATFORM_STDIO_BUFFERED_SERIAL          0                                       // set by library:platform
-#define MBED_CONF_PLATFORM_STDIO_CONVERT_NEWLINES         0                                       // set by library:platform
-#define MBED_CONF_PLATFORM_STDIO_CONVERT_TTY_NEWLINES     0                                       // set by library:platform
-#define MBED_CONF_PLATFORM_STDIO_FLUSH_AT_EXIT            1                                       // set by library:platform
-#define MBED_CONF_TARGET_LPUART_CLOCK_SOURCE              USE_LPUART_CLK_LSE|USE_LPUART_CLK_PCLK1 // set by target:FAMILY_STM32
-#define MBED_CONF_TARGET_LSE_AVAILABLE                    1                                       // set by target:FAMILY_STM32
+#define CLOCK_SOURCE \
+  USE_PLL_HSE_EXTC | USE_PLL_HSI  // set by target:NUCLEO_F446RE
+#define MBED_CONF_PLATFORM_DEFAULT_SERIAL_BAUD_RATE \
+  9600                                               // set by library:platform
+#define MBED_CONF_PLATFORM_ERROR_ALL_THREADS_INFO 0  // set by library:platform
+#define MBED_CONF_PLATFORM_ERROR_FILENAME_CAPTURE_ENABLED \
+  0                                              // set by library:platform
+#define MBED_CONF_PLATFORM_ERROR_HIST_ENABLED 0  // set by library:platform
+#define MBED_CONF_PLATFORM_ERROR_HIST_SIZE 4     // set by library:platform
+#define MBED_CONF_PLATFORM_FORCE_NON_COPYABLE_ERROR \
+  0                                                   // set by library:platform
+#define MBED_CONF_PLATFORM_MAX_ERROR_FILENAME_LEN 16  // set by library:platform
+#define MBED_CONF_PLATFORM_POLL_USE_LOWPOWER_TIMER 0  // set by library:platform
+#define MBED_CONF_PLATFORM_STDIO_BAUD_RATE 9600       // set by library:platform
+#define MBED_CONF_PLATFORM_STDIO_BUFFERED_SERIAL 0    // set by library:platform
+#define MBED_CONF_PLATFORM_STDIO_CONVERT_NEWLINES 0   // set by library:platform
+#define MBED_CONF_PLATFORM_STDIO_CONVERT_TTY_NEWLINES \
+  0                                               // set by library:platform
+#define MBED_CONF_PLATFORM_STDIO_FLUSH_AT_EXIT 1  // set by library:platform
+#define MBED_CONF_TARGET_LPUART_CLOCK_SOURCE \
+  USE_LPUART_CLK_LSE | USE_LPUART_CLK_PCLK1  // set by target:FAMILY_STM32
+#define MBED_CONF_TARGET_LSE_AVAILABLE 1     // set by target:FAMILY_STM32
 
 #endif

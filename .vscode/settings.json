@@ -1,0 +1,10 @@
+{
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "ms-vscode.cpptools",
+    "C_Cpp.clang_format_style": "Google",
+    "C_Cpp.clang_format_fallbackStyle": "Google",
+    "[cpp]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true
+    }
+}
