@@ -8,7 +8,7 @@ on:
       - "trader/**"
       - ".github/workflows/build.yml"
   push:
-    branches: [main, dev, develop]
+    branches: [main, dev, develop, ci-build-validation]
     paths:
       - "coordinator/**"
       - "trader/**"
