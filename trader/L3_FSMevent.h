@@ -16,6 +16,7 @@ typedef enum L3_event {
   L3_event_recRcvd      = 3,  // Event B: Coordinator로부터 REC PDU 수신
   L3_event_mchRcvd      = 4,  // Event C: Coordinator로부터 MCH PDU 수신
   L3_event_timeout      = 5,  // Event D: 타이머 만료
+  L3_event_recfgSrcIdCnf = 6, // SrcId 재설정 완료 확인
 } L3_event_e;
 
 void L3_event_setEventFlag(L3_event_e event);     // 이벤트 발생 표시 (1로 세팅)  
