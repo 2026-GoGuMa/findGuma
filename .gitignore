@@ -1,0 +1,47 @@
+# Build output
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+*.d
+
+# Compiled output directories
+build/
+BUILD/
+out/
+output/
+
+# IDE / editor
+.idea/
+*.code-workspace
+*.suo
+*.user
+*.ncb
+*.sdf
+*.opensdf
+*.VC.db
+
+# macOS
+.DS_Store
+**/.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Shell script artifacts
+*.log
+
+# Docs
+docs/
+
+# mbed build artifacts
+.mbed
+mbed-os/
+BUILD/
+.build/

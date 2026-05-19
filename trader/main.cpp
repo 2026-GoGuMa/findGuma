@@ -3,35 +3,53 @@
 #include "mbed.h"
 #include "string.h"
 
-// serial port interface
+// 시리얼 포트 (PC와 통신용)
 Serial pc(USBTX, USBRX);
 
-// GLOBAL variables (DO NOT TOUCH!) ------------------------------------------
+// 전역 변수 (수정 금지) ------------------------------------------
+uint8_t input_thisId  = 1;  // 이 노드의 ID
+uint8_t input_coordId = 0;  // 코디네이터 ID
 
-// source/destination ID
-uint8_t input_thisId = 1;
-uint8_t input_destId = 0;
-
-// FSM operation implementation ------------------------------------------------
+// 프로그램 시작점 ------------------------------------------------
 int main(void) {
-  // initialization
   pc.printf(
       "------------------ protocol stack starts! --------------------------\n");
-  // source & destination ID setting
+
+  // 사용자 입력 받기
   pc.printf(":: ID for this node : ");
   pc.scanf("%d", &input_thisId);
-  pc.printf(":: ID for the destination : ");
-  pc.scanf("%d", &input_destId);
+
+  pc.printf(":: ID for the coordinator : ");
+  pc.scanf("%d", &input_coordId);
+
+  uint8_t  input_isSeller = 0;  // 판매자 여부 (0: 구매자, 1: 판매자)
+  uint8_t  input_goods    = 0;  // 상품 종류
+  uint16_t input_price    = 0;  // 희망 가격
+
+  pc.printf(":: isSeller (0=buyer / 1=seller) : ");
+  pc.scanf("%d", &input_isSeller);
+
+  pc.printf(":: goods type : ");
+  pc.scanf("%d", &input_goods);
+
+  pc.printf(":: price : ");
+  pc.scanf("%d", &input_price);
+
   pc.getc();
 
-  pc.printf("endnode : %i, dest : %i\n", input_thisId, input_destId);
+  // 입력값 확인 출력
+  pc.printf("Trader id=%u  coord=%u  isSeller=%u  goods=%u  price=%u\n",
+             input_thisId, input_coordId, input_isSeller,
+             input_goods, input_price);
 
-  // initialize lower layer stacks
+  // FSM 초기화
   L2_initFSM(input_thisId);
-  L3_initFSM(input_destId);
+  L3_initFSM(input_thisId, input_coordId, input_isSeller,
+              input_goods, input_price);
 
+  // 메인 루프 : L2 → L3 순서로 반복 실행
   while (1) {
-    L2_FSMrun();
-    L3_FSMrun();
+    L2_FSMrun();   // L2 FSM (무선 송수신 처리)
+    L3_FSMrun();   // L3 FSM (거래 협상 처리)
   }
 }
