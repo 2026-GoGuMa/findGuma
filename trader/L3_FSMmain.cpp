@@ -29,7 +29,7 @@ static uint16_t rcvd_avg_loc       = 0;
 static uint8_t  rcvd_match_success = 0;
 
 static uint8_t sdu[L3_MAXDATASIZE];
-static Serial  pc(USBTX, USBRX);
+extern Serial  pc;  // main.cpp에서 선언된 Serial 객체 사용
 
 // actions 
 static void action_sendTxn(void) {           // TXN 패킷 빌드 후 전송 
@@ -156,7 +156,7 @@ void L3_FSMrun(void) {
       } else if (L3_event_checkEventFlag(L3_event_mchRcvd) ||
                  L3_event_checkEventFlag(L3_event_timeout)) {
 
-        // Event C: 실패 reset  →  BROADCASTING
+        // Event C or D: 실패 reset  →  BROADCASTING
         L3_timer_stopTimer();
         action_reset(0);
         main_state = L3STATE_BROADCASTING;
@@ -196,6 +196,7 @@ void L3_FSMrun(void) {
         main_state = L3STATE_BROADCASTING;
       } else if (L3_event_checkEventFlag(L3_event_timeout)) {
         // Event D: MCH 타임아웃  →  실패 reset  →  BROADCASTING
+        L3_timer_stopTimer();
         action_reset(0);
         main_state = L3STATE_BROADCASTING;
       }

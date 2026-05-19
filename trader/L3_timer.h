@@ -1,3 +1,4 @@
+#pragma once
 #include "mbed.h"
 
 // 타이머 시작
