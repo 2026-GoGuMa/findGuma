@@ -1,3 +1,5 @@
+#include "mbed.h"
+
 void L2_LLI_initLowLayer(uint8_t srcId);
 void L2_LLI_sendData(uint8_t* msg, uint8_t size, uint8_t dest);
 int L2_LLI_configSrcId(uint8_t);
