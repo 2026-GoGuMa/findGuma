@@ -1,3 +1,5 @@
+#include "mbed.h"
+
 #define PHYMAC_STATE_RX 0
 #define PHYMAC_STATE_TX 1
 
