@@ -1,4 +1,5 @@
 extern void (*L3_LLI_dataReqFunc)(uint8_t* msg, uint8_t size, uint8_t destId);
+extern void (*L3_LLI_reconfigSrcIdReqFunc)(uint8_t myId);
 
 void L3_LLI_dataInd(uint8_t* dataPtr, uint8_t srcId, uint8_t size, int8_t snr,
                     int16_t rssi);
