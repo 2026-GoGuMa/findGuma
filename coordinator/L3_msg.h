@@ -15,11 +15,28 @@
 #define L3_MSG_OFFSET_DESTID 3
 #define L3_MSG_OFFSET_DATA 4  // 4번째 칸: 실제 데이터 내용(Payload)
 
+#define L3_MSG_WAIT_PAIR_SIZE L3_MSG_OFFSET_DATA
+#define L3_MSG_TXN_SIZE 10
+#define L3_MSG_CNF_SIZE 6
 #define L3_MSG_MAXDATASIZE 1024
 #define L3_MSG_MAX_SEQNUM 1024
+
+typedef struct L3_txnInfo {
+  uint8_t id;
+  uint8_t signal;
+  uint8_t isSeller;
+  uint8_t goods;
+  uint16_t price;
+} L3_txnInfo_t;
 
 int L3_msg_checkMsgType(uint8_t* msg);
 uint8_t L3_msg_encodeMsg(uint8_t* msg, uint8_t type, uint8_t seq, uint8_t srcId,
                          uint8_t destId, uint8_t* data, int len);
 uint8_t L3_msg_getSeq(uint8_t* msg);
 uint8_t* L3_msg_getData(uint8_t* msg);
+
+int L3_msg_checkIfTxn(uint8_t* msg, uint8_t size);
+int L3_msg_checkIfCnf(uint8_t* msg, uint8_t size);
+uint8_t L3_msg_encodeWaitPair(uint8_t* msg, uint8_t seq, uint8_t srcId,
+                              uint8_t dstId);
+int L3_msg_decodeTxn(uint8_t* msg, uint8_t size, L3_txnInfo_t* txnInfo);

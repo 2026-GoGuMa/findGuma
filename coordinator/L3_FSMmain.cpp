@@ -7,6 +7,10 @@
 
 // FSM state -------------------------------------------------
 #define L3STATE_IDLE 0
+#define L3STATE_WAIT_PAIR 1
+
+#define L3_COORDINATOR_ID 0
+#define L3_MIN_RSSI -60 // 임의 설정 
 
 // state variables
 static uint8_t main_state = L3STATE_IDLE;  // protocol state
@@ -17,6 +21,8 @@ static uint8_t originalWord[1030];
 static uint8_t wordLen = 0;
 
 static uint8_t sdu[1030];
+static uint8_t l3SeqNum = 0;
+static L3_txnInfo_t pendingTxn;
 
 // serial port interface
 static Serial pc(USBTX, USBRX);
@@ -50,6 +56,30 @@ void L3_initFSM(uint8_t destId) {
   pc.printf("Give a word to send : ");
 }
 
+static uint8_t L3_signalConditionPassed(int16_t rssi) {
+  return rssi >= L3_MIN_RSSI;
+}
+
+// action 1: TXN 메시지 내용을 pendingTxn에 저장하는 함수
+static void L3_storeTxn(L3_txnInfo_t* txnInfo) {
+  pendingTxn = *txnInfo;
+
+  debug_if(DBGMSG_L3,
+           "[L3] stored TXN id:%i signal:%i seller:%i goods:%i price:%i\n",
+           pendingTxn.id, pendingTxn.signal, pendingTxn.isSeller,
+           pendingTxn.goods, pendingTxn.price);
+}
+
+// action 5: Trader에게 WAIT_PAIR 메시지 보내는 함수 
+static void L3_sendWaitPair(uint8_t traderId) {
+  uint8_t waitPair[L3_MSG_WAIT_PAIR_SIZE];
+  uint8_t pduSize = L3_msg_encodeWaitPair(waitPair, l3SeqNum++,
+                                          L3_COORDINATOR_ID, traderId);
+
+  L3_LLI_dataReqFunc(waitPair, pduSize, traderId);
+  debug_if(DBGMSG_L3, "[L3] WAIT_PAIR sent to trader %i\n", traderId);
+}
+
 void L3_FSMrun(void) {
   if (prev_state != main_state) {
     debug_if(DBGMSG_L3, "[L3] State transition from %i to %i\n", prev_state,
@@ -67,12 +97,28 @@ void L3_FSMrun(void) {
         // Retrieving data info.
         uint8_t* dataPtr = L3_LLI_getMsgPtr();
         uint8_t size = L3_LLI_getSize();
+        L3_txnInfo_t txnInfo;
 
-        debug(
-            "\n -------------------------------------------------\nRCVD MSG : "
-            "%s (length:%i)\n "
-            "-------------------------------------------------\n",
-            dataPtr, size);
+        int16_t rssi = L3_LLI_getRssi();
+
+        // 메시지가 TXN이라면 내용을 꺼내서 TXNinfo에 담음 
+        if (L3_msg_decodeTxn(dataPtr, size, &txnInfo)) {
+          // TXN 메시지 처리 : RSSI 조건 확인 -> 조건 통과 시 TXN 저장, WAIT_PAIR 송신, 타이머 시작, 상태 전이
+          if (L3_signalConditionPassed(rssi)) {
+            L3_storeTxn(&txnInfo);
+            L3_sendWaitPair(txnInfo.id);
+            L3_timer_startTimer();
+            main_state = L3STATE_WAIT_PAIR;
+          } else {
+            debug_if(DBGMSG_L3,
+                     "[L3] TXN ignored, RSSI %i is lower than minimum %i\n",
+                     rssi, L3_MIN_RSSI);
+          }
+        } else if (L3_msg_checkIfCnf(dataPtr, size)) {
+          debug_if(DBGMSG_L3, "[L3] CNF ignored in IDLE state\n");
+        } else {
+          debug_if(DBGMSG_L3, "[L3] unknown PDU ignored in IDLE state\n");
+        }
 
         pc.printf("Give a word to send : ");
 
@@ -92,6 +138,12 @@ void L3_FSMrun(void) {
         pc.printf("Give a word to send : ");
 
         L3_event_clearEventFlag(L3_event_dataToSend);
+      }
+      break;
+
+    case L3STATE_WAIT_PAIR:
+      if (L3_event_checkEventFlag(L3_event_dataSendCnf)) {
+        L3_event_clearEventFlag(L3_event_dataSendCnf);
       }
       break;
 

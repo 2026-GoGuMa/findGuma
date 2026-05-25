@@ -40,6 +40,7 @@ void L3_LLI_reconfigSrcIdCnf(uint8_t res) {
 
 uint8_t* L3_LLI_getMsgPtr() { return rcvdMsg; }
 uint8_t L3_LLI_getSize() { return rcvdSize; }
+int16_t L3_LLI_getRssi() { return rcvdRssi; }
 
 uint8_t L3_LLI_getSrcId() { return rcvdSrcId; }
 
