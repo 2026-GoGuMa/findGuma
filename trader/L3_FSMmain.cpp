@@ -68,22 +68,22 @@ static void parse_msg(void) {
 
   switch (type) {
 
-    // WAIT_PAIR 수신 시  
-    case PDU_TYPE_WAIT_PAIR:
+    // WAIT_PAIR 수신 시
+    case L3_MSG_TYPE_WAIT_PAIR:
       L3_event_setEventFlag(L3_event_waitPairRcvd);
       break;
-    
+
     // REC 수신 시 (파싱 → 값 저장 → 플래그 세팅)
-    case PDU_TYPE_REC: {
-      rec_payload_t rec  = L3_msg_parseRec(dataPtr);   // 페이로드 파싱 
-      rcvd_avg_price     = rec.avg_price;              // 전역 변수에 저장 
+    case L3_MSG_TYPE_REC: {
+      rec_payload_t rec  = L3_msg_parseRec(dataPtr);   // 페이로드 파싱
+      rcvd_avg_price     = rec.avg_price;              // 전역 변수에 저장
       rcvd_avg_loc       = rec.avg_loc;
       L3_event_setEventFlag(L3_event_recRcvd);
       break;
     }
 
     // MCH 수신 시
-    case PDU_TYPE_MCH: {
+    case L3_MSG_TYPE_MCH: {
       mch_payload_t mch  = L3_msg_parseMch(dataPtr);
       rcvd_match_success = mch.match_success;
       L3_event_setEventFlag(L3_event_mchRcvd);
