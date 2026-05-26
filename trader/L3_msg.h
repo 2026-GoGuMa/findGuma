@@ -19,6 +19,13 @@
 #define L3_MSG_MAXDATASIZE  1024
 #define L3_MSG_MAX_SEQNUM   1024
 
+// TXN 페이로드 오프셋 (L3_MSG_OFFSET_DATA 기준)
+#define L3_TXN_OFFSET_ID       0  // 1바이트
+#define L3_TXN_OFFSET_SIGNAL   1  // 1바이트
+#define L3_TXN_OFFSET_ISSELLER 2  // 1바이트
+#define L3_TXN_OFFSET_GOODS    3  // 1바이트
+#define L3_TXN_OFFSET_PRICE    4  // 2바이트 (4번, 5번)
+
 // REC payload: 코디네이터가 평균값 전달
 typedef struct {
   uint16_t avg_price;    // 평균 가격 (2바이트)

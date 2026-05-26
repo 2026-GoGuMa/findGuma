@@ -18,6 +18,13 @@
 #define L3_MSG_MAXDATASIZE 1024
 #define L3_MSG_MAX_SEQNUM 1024
 
+// TXN 페이로드 오프셋 (L3_MSG_OFFSET_DATA 기준)
+#define L3_TXN_OFFSET_ID       0  // 1바이트
+#define L3_TXN_OFFSET_SIGNAL   1  // 1바이트
+#define L3_TXN_OFFSET_ISSELLER 2  // 1바이트
+#define L3_TXN_OFFSET_GOODS    3  // 1바이트
+#define L3_TXN_OFFSET_PRICE    4  // 2바이트 (4번, 5번)
+
 int L3_msg_checkMsgType(uint8_t* msg);
 uint8_t L3_msg_encodeMsg(uint8_t* msg, uint8_t type, uint8_t seq, uint8_t srcId,
                          uint8_t destId, uint8_t* data, int len);

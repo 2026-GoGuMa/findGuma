@@ -10,16 +10,17 @@
 uint8_t L3_msg_buildTxn(uint8_t* buf, uint8_t myId, uint8_t coordId,
                          uint16_t seq, int8_t signal, uint8_t isSeller,
                          uint8_t goods, uint16_t price) {
-  buf[L3_MSG_OFFSET_TYPE]        = L3_MSG_TYPE_TXN;
-  buf[L3_MSG_OFFSET_SEQ]         = seq;
-  buf[L3_MSG_OFFSET_SRCID]       = myId;
-  buf[L3_MSG_OFFSET_DESTID]      = coordId;
-  buf[L3_MSG_OFFSET_DATA + 0]    = (uint8_t)signal;
-  buf[L3_MSG_OFFSET_DATA + 1]    = isSeller;
-  buf[L3_MSG_OFFSET_DATA + 2]    = goods;
-  buf[L3_MSG_OFFSET_DATA + 3]    = (uint8_t)(price >> 8);
-  buf[L3_MSG_OFFSET_DATA + 4]    = (uint8_t)(price & 0xFF);
-  return L3_MSG_OFFSET_DATA + 5;
+  buf[L3_MSG_OFFSET_TYPE]                        = L3_MSG_TYPE_TXN;
+  buf[L3_MSG_OFFSET_SEQ]                         = seq;
+  buf[L3_MSG_OFFSET_SRCID]                       = myId;
+  buf[L3_MSG_OFFSET_DESTID]                      = coordId;
+  buf[L3_MSG_OFFSET_DATA + L3_TXN_OFFSET_ID]     = myId;
+  buf[L3_MSG_OFFSET_DATA + L3_TXN_OFFSET_SIGNAL] = (uint8_t)signal;
+  buf[L3_MSG_OFFSET_DATA + L3_TXN_OFFSET_ISSELLER] = isSeller;
+  buf[L3_MSG_OFFSET_DATA + L3_TXN_OFFSET_GOODS]  = goods;
+  buf[L3_MSG_OFFSET_DATA + L3_TXN_OFFSET_PRICE]  = (uint8_t)(price >> 8);
+  buf[L3_MSG_OFFSET_DATA + L3_TXN_OFFSET_PRICE + 1] = (uint8_t)(price & 0xFF);
+  return L3_MSG_OFFSET_DATA + 6;
 }
 
 // CNF 패킷 만들기 (Trader가 Coordinator에게 보내는 확인 응답 패킷)
