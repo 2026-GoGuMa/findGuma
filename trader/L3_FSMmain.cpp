@@ -5,7 +5,7 @@
 #include "mbed.h"
 #include "protocol_parameters.h"
 
-// FSM state 
+// FSM state
 #define L3STATE_BROADCASTING   0   // 대기중 (WAIT_PAIR 기다리는 중)
 #define L3STATE_WAIT_PRICE_REC 1   // TXN 보냄 → 가격 REC 기다리는 중
 #define L3STATE_WAIT_LOC_REC   2   // 가격 CNF 보냄 → 위치 REC 기다리는 중
@@ -31,10 +31,10 @@ static uint8_t  rcvd_match_success = 0;
 static uint8_t sdu[L3_MAXDATASIZE];
 extern Serial  pc;  // main.cpp에서 선언된 Serial 객체 사용
 
-// actions 
-static void L3_action_sendTxn(void) {           // TXN 패킷 빌드 후 전송 
+// actions
+static void L3_action_sendTxn(void) {           // TXN 패킷 빌드 후 전송
   uint8_t size = L3_msg_buildTxn(sdu, myId, coordId, seq_num++,
-                                  0, isSeller, goods, price);
+                                  L3_LLI_getRssi(), isSeller, goods, price);
   L3_LLI_dataReqFunc(sdu, size, coordId);
   debug_if(DBGMSG_L3, "[L3] TXN sent\n");
 }

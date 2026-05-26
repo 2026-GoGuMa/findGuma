@@ -45,6 +45,7 @@ void L3_LLI_reconfigSrcIdCnf(uint8_t res) {
 uint8_t* L3_LLI_getMsgPtr()  { return rcvdMsg;   }  // 패킷 내용 포인터 반환
 uint8_t  L3_LLI_getSize()    { return rcvdSize;   }  // 패킷 크기 반환
 uint8_t  L3_LLI_getSrcId()   { return rcvdSrcId;  }  // 송신 노드 ID 반환
+int16_t  L3_LLI_getRssi()    { return rcvdRssi;   }  // 수신 신호 세기 반환
 
 // 함수 포인터 등록 (main.cpp에서 L2 함수와 연결)
 void L3_LLI_setDataReqFunc(void (*funcPtr)(uint8_t*, uint8_t, uint8_t)) {
