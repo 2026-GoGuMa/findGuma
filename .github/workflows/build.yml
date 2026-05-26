@@ -2,13 +2,7 @@ name: Build
 
 on:
   pull_request:
-    branches: [main, dev, develop]
-    paths:
-      - "coordinator/**"
-      - "trader/**"
-      - ".github/workflows/build.yml"
-  push:
-    branches: [main, dev, develop, ci-build-validation]
+    branches: [main]
     paths:
       - "coordinator/**"
       - "trader/**"
