@@ -1,6 +1,7 @@
 #include "L2_FSMmain.h"
 #include "L3_FSMmain.h"
 #include "mbed.h"
+#include "protocol_parameters.h"
 #include "string.h"
 
 // 시리얼 포트 (PC와 통신용)
@@ -8,7 +9,6 @@ Serial pc(USBTX, USBRX);
 
 // 전역 변수 (수정 금지) ------------------------------------------
 uint8_t input_thisId  = 1;  // 이 노드의 ID
-uint8_t input_coordId = 0;  // 코디네이터 ID
 
 // 프로그램 시작점 ------------------------------------------------
 int main(void) {
@@ -18,9 +18,6 @@ int main(void) {
   // 사용자 입력 받기
   pc.printf(":: ID for this node : ");
   pc.scanf("%d", &input_thisId);
-
-  pc.printf(":: ID for the coordinator : ");
-  pc.scanf("%d", &input_coordId);
 
   uint8_t  input_isSeller = 0;  // 판매자 여부 (0: 구매자, 1: 판매자)
   uint8_t  input_goods    = 0;  // 상품 종류
@@ -39,12 +36,12 @@ int main(void) {
 
   // 입력값 확인 출력
   pc.printf("Trader id=%u  coord=%u  isSeller=%u  goods=%u  price=%u\n",
-             input_thisId, input_coordId, input_isSeller,
+             input_thisId, L3_COORDINATOR_ID, input_isSeller,
              input_goods, input_price);
 
   // FSM 초기화
   L2_initFSM(input_thisId);
-  L3_initFSM(input_thisId, input_coordId, input_isSeller,
+  L3_initFSM(input_thisId, L3_COORDINATOR_ID, input_isSeller,
               input_goods, input_price);
 
   // 메인 루프 : L2 → L3 순서로 반복 실행
