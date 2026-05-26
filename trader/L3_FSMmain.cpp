@@ -21,7 +21,7 @@ static uint8_t  coordId;
 static uint8_t  isSeller;
 static uint8_t  goods;
 static uint16_t price;
-static uint8_t  seq_num = 0;
+static uint16_t seq_num = 0;
 
 // coordinator로부터 수신한 값 
 static uint16_t rcvd_avg_price     = 0;

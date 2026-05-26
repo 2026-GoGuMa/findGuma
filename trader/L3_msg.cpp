@@ -8,7 +8,7 @@
 
 // TXN 패킷 만들기 (Trader가 Coordinator에게 보내는 거래 정보 패킷)
 uint8_t L3_msg_buildTxn(uint8_t* buf, uint8_t myId, uint8_t coordId,
-                         uint8_t seq, int8_t signal, uint8_t isSeller,
+                         uint16_t seq, int8_t signal, uint8_t isSeller,
                          uint8_t goods, uint16_t price) {
   buf[L3_MSG_OFFSET_TYPE]        = L3_MSG_TYPE_TXN;
   buf[L3_MSG_OFFSET_SEQ]         = seq;
@@ -24,7 +24,7 @@ uint8_t L3_msg_buildTxn(uint8_t* buf, uint8_t myId, uint8_t coordId,
 
 // CNF 패킷 만들기 (Trader가 Coordinator에게 보내는 확인 응답 패킷)
 uint8_t L3_msg_buildCnf(uint8_t* buf, uint8_t myId, uint8_t coordId,
-                         uint8_t seq, uint16_t price_cnf, uint16_t loc_cnf) {
+                         uint16_t seq, uint16_t price_cnf, uint16_t loc_cnf) {
   buf[L3_MSG_OFFSET_TYPE]        = L3_MSG_TYPE_CNF;
   buf[L3_MSG_OFFSET_SEQ]         = seq;
   buf[L3_MSG_OFFSET_SRCID]       = myId;

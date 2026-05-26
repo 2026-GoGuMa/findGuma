@@ -32,12 +32,12 @@ typedef struct {
 
 // TXN 패킷 만들기 (거래 정보를 바이트 배열로)
 uint8_t L3_msg_buildTxn(uint8_t* buf, uint8_t myId, uint8_t coordId,
-                         uint8_t seq, int8_t signal, uint8_t isSeller,
+                         uint16_t seq, int8_t signal, uint8_t isSeller,
                          uint8_t goods, uint16_t price);
 
 // CNF 패킷 만들기 (확인 응답을 바이트 배열로)
 uint8_t L3_msg_buildCnf(uint8_t* buf, uint8_t myId, uint8_t coordId,
-                         uint8_t seq, uint16_t price_cnf, uint16_t loc_cnf);
+                         uint16_t seq, uint16_t price_cnf, uint16_t loc_cnf);
 
 // 수신 버퍼에서 패킷 타입만 꺼내기
 uint8_t       L3_msg_getPduType(uint8_t* buf);
