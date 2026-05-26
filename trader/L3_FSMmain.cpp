@@ -103,7 +103,7 @@ void L3_initFSM(uint8_t id, uint8_t cId, uint8_t seller,
   isSeller = seller;
   goods    = g;
   price    = p;
-  pc.printf("[Trader] id=%u coord=%u isSeller=%u goods=%u price=%u\n",
+  pc.printf("[Trader] id=%u coord=%u isSeller=%u goods=%u price=$%u\n",
              myId, coordId, isSeller, goods, price);
 }
 

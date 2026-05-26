@@ -29,13 +29,13 @@ int main(void) {
   pc.printf(":: goods type : ");
   pc.scanf("%d", &input_goods);
 
-  pc.printf(":: price : ");
+  pc.printf(":: price ($) : ");
   pc.scanf("%d", &input_price);
 
   pc.getc();
 
   // 입력값 확인 출력
-  pc.printf("Trader id=%u  coord=%u  isSeller=%u  goods=%u  price=%u\n",
+  pc.printf("Trader id=%u  coord=%u  isSeller=%u  goods=%u  price=$%u\n",
              input_thisId, L3_COORDINATOR_ID, input_isSeller,
              input_goods, input_price);
 
