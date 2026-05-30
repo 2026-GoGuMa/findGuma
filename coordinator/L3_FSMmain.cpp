@@ -13,7 +13,7 @@
 static uint8_t main_state = L3STATE_IDLE;
 static uint8_t prev_state = main_state;
 
-static uint8_t L3SeqNum = 0;
+static uint8_t L3SeqNum = 1;
 static L3_txnInfo_t pendingTxn;
 
 void L3_initFSM(void) {
@@ -21,6 +21,13 @@ void L3_initFSM(void) {
 
 static uint8_t L3_signalConditionPassed(int16_t rssi) {
   return rssi >= L3_MIN_RSSI;
+}
+
+static uint8_t L3_getNextSeqNum(void) {
+  uint8_t seqNum = L3SeqNum;
+  L3SeqNum = (L3SeqNum + 1) % L3_MSG_MAX_SEQNUM;
+  if (L3SeqNum == 0) L3SeqNum = 1;
+  return seqNum;
 }
 
 // action 1: TXN 메시지 내용을 pendingTxn에 저장하는 함수
@@ -37,7 +44,8 @@ static void L3_storeTxn(L3_txnInfo_t* txnInfo) {
 static void L3_sendWaitPair(uint8_t traderId) {
   uint8_t waitPair[L3_MSG_WAIT_PAIR_SIZE];
   uint8_t pduSize =
-      L3_msg_encodeWaitPair(waitPair, L3SeqNum++, L3_COORDINATOR_ID, traderId);
+      L3_msg_encodeWaitPair(waitPair, L3_getNextSeqNum(), L3_COORDINATOR_ID,
+                            traderId);
 
   L3_LLI_dataReqFunc(waitPair, pduSize, traderId);
   debug_if(DBGMSG_L3, "[L3] WAIT_PAIR sent to trader %i\n", traderId);
