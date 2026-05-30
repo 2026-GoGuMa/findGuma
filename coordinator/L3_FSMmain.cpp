@@ -37,7 +37,7 @@ static void L3_storeTxn(L3_txnInfo_t* txnInfo) {
 static void L3_sendWaitPair(uint8_t traderId) {
   uint8_t waitPair[L3_MSG_WAIT_PAIR_SIZE];
   uint8_t pduSize =
-      L3_msg_encodeWaitPair(waitPair, l3SeqNum++, L3_COORDINATOR_ID, traderId);
+      L3_msg_encodeWaitPair(waitPair, L3SeqNum++, L3_COORDINATOR_ID, traderId);
 
   L3_LLI_dataReqFunc(waitPair, pduSize, traderId);
   debug_if(DBGMSG_L3, "[L3] WAIT_PAIR sent to trader %i\n", traderId);
@@ -61,7 +61,8 @@ void L3_FSMrun(void) {
 
         // 메시지가 TXN이라면 내용을 꺼내서 TXNinfo에 담음
         if (L3_msg_decodeTxn(dataPtr, size, &txnInfo)) {
-          if (L3_signalConditionPassed(rssi)) {
+          txnInfo.signal = rssi;
+          if (L3_signalConditionPassed(txnInfo.signal)) {
             L3_storeTxn(&txnInfo);
             L3_sendWaitPair(txnInfo.id);
             L3_timer_startTimer();

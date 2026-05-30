@@ -48,7 +48,6 @@ int L3_msg_decodeTxn(uint8_t* msg, uint8_t size, L3_txnInfo_t* txnInfo) {
 
   uint8_t* data = L3_msg_getData(msg);
   txnInfo->id = data[L3_TXN_OFFSET_ID];
-  txnInfo->signal = data[L3_TXN_OFFSET_SIGNAL];
   txnInfo->isSeller = data[L3_TXN_OFFSET_ISSELLER];
   txnInfo->goods = data[L3_TXN_OFFSET_GOODS];
   txnInfo->price = L3_msg_readUint16(&data[L3_TXN_OFFSET_PRICE]);
