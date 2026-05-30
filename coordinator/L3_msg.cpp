@@ -46,11 +46,12 @@ uint8_t L3_msg_encodeWaitPair(uint8_t* msg, uint8_t seq, uint8_t srcId,
 int L3_msg_decodeTxn(uint8_t* msg, uint8_t size, L3_txnInfo_t* txnInfo) {
   if (!L3_msg_checkIfTxn(msg, size)) return 0;
 
-  txnInfo->id = msg[L3_MSG_OFFSET_DATA];
-  txnInfo->signal = msg[L3_MSG_OFFSET_DATA + 1];
-  txnInfo->isSeller = msg[L3_MSG_OFFSET_DATA + 2];
-  txnInfo->goods = msg[L3_MSG_OFFSET_DATA + 3];
-  txnInfo->price = L3_msg_readUint16(&msg[L3_MSG_OFFSET_DATA + 4]);
+  uint8_t* data = L3_msg_getData(msg);
+  txnInfo->id = data[L3_TXN_OFFSET_ID];
+  txnInfo->signal = data[L3_TXN_OFFSET_SIGNAL];
+  txnInfo->isSeller = data[L3_TXN_OFFSET_ISSELLER];
+  txnInfo->goods = data[L3_TXN_OFFSET_GOODS];
+  txnInfo->price = L3_msg_readUint16(&data[L3_TXN_OFFSET_PRICE]);
 
   return 1;
 }

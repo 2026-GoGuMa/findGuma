@@ -9,14 +9,11 @@
 #define L3STATE_IDLE 0
 #define L3STATE_WAIT_PAIR 1
 
-#define L3_COORDINATOR_ID 0
-#define L3_MIN_RSSI -60  // 임의 설정
-
 // state variables
 static uint8_t main_state = L3STATE_IDLE;
 static uint8_t prev_state = main_state;
 
-static uint8_t l3SeqNum = 0;
+static uint8_t L3SeqNum = 0;
 static L3_txnInfo_t pendingTxn;
 
 void L3_initFSM(void) {

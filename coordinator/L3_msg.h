@@ -15,6 +15,13 @@
 #define L3_MSG_OFFSET_DESTID 3
 #define L3_MSG_OFFSET_DATA 4  // 4번째 칸: 실제 데이터 내용(Payload)
 
+// TXN payload offset
+#define L3_TXN_OFFSET_ID 0        // 1 byte
+#define L3_TXN_OFFSET_SIGNAL 1    // 1 byte
+#define L3_TXN_OFFSET_ISSELLER 2  // 1 byte
+#define L3_TXN_OFFSET_GOODS 3     // 1 byte
+#define L3_TXN_OFFSET_PRICE 4     // 2 bytes
+
 #define L3_MSG_WAIT_PAIR_SIZE L3_MSG_OFFSET_DATA
 #define L3_MSG_TXN_SIZE 10
 #define L3_MSG_CNF_SIZE 6
