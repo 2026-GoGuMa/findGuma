@@ -9,14 +9,13 @@ static uint8_t timerStatus = 0;
 // timer event : ARQ timeout
 void L3_timer_timeoutHandler(void) {
   timerStatus = 0;
-  // L3_event_setEventFlag(L3_event_arqTimeout);
+  L3_event_setEventFlag(L3_event_timeout);
 }
 
 // timer related functions ---------------------------
 void L3_timer_startTimer() {
   uint8_t waitTime =
-      1;  // L2_ARQ_MINWAITTIME +
-          // rand()%(L2_ARQ_MAXWAITTIME-L2_ARQ_MINWAITTIME); //timer length
+      L3_MINWAITTIME + rand() % (L3_MAXWAITTIME - L3_MINWAITTIME);
   timer.attach(L3_timer_timeoutHandler, waitTime);
   timerStatus = 1;
 }
