@@ -10,3 +10,6 @@
 
 #define L3_COORDINATOR_ID 0
 #define L3_MIN_RSSI -60  // 임의 설정
+
+// 중간 위치 임의 설정(숙명여대 눈꽃광장홀)
+#define AVG_LOC 4312  // 04312, 우편번호는 636***까지 표현 가능
