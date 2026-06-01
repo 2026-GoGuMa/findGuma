@@ -147,6 +147,7 @@ void L3_FSMrun(void) {
         L3_event_clearEventFlag(L3_event_dataSendCnf);
         // 개발 더
       }
+      break;
 
     case L3STATE_WAIT_PRICE_CNF:
       // Event B. CNF 메시지 수신했을 때
