@@ -177,7 +177,7 @@ void L3_FSMrun(void) {
                      srcId);
           }
 
-          // Event B. 둘 다에게서 cnf을 수신했을 경우
+          // Event B. 둘 다에게서 CNF를 수신했을 경우
           if (cnf_p_rcvd && cnf_m_rcvd) {
             // c3. 둘 다에게서 accept 받았을 경우
             if (cnf_p_accpt && cnf_m_accpt) {
@@ -200,6 +200,7 @@ void L3_FSMrun(void) {
 
               main_state = L3STATE_WAIT_LOC_CNF;
             } else {
+              // !c3. 둘 중 적어도 한 명이 reject 했을 경우
               debug_if(
                   DBGMSG_L3,
                   "[L3] CNFs received, but at least one reject, resetting\n");
@@ -213,17 +214,108 @@ void L3_FSMrun(void) {
             }
           }
           L3_event_clearEventFlag(L3_event_msgRcvd);
+        } else {
+          // CNF 메시지가 아닌 TXN 메시지나 알 수 없는 메시지가 온 경우
+          L3_event_clearEventFlag(L3_event_msgRcvd);
+          debug_if(DBGMSG_L3,
+                   "[L3] unknown PDU ignored in WAIT_PRICE_CNF state\n");
         }
       }
       // Event D. CNF 송신 timeout
       if (L3_event_checkEventFlag(L3_event_timeout)) {
         debug_if(DBGMSG_L3, "[L3] CNF timeout occurred\n");
+
+        // 양측 Trader에게 MCH 메시지 보내기 (reject)
+        L3_sendMch(pendingTxn.id, 0);
+        L3_sendMch(matchingTxn.id, 0);
+
         L3_event_clearEventFlag(L3_event_timeout);
         // reset & go to idle
         L3_resetAll();
         main_state = L3STATE_IDLE;
       }
+      break;
 
-      // case L3STATE_WAIT_LOC_CNF:
-      //   if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
+    case L3STATE_WAIT_LOC_CNF:
+      // Event B. CNF 메시지 수신했을 때
+      if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
+        uint8_t srcId = L3_LLI_getSrcId();
+        uint8_t* msg = L3_LLI_getMsgPtr();
+        uint8_t size = L3_LLI_getSize();
+
+        if (L3_msg_checkIfCnf(msg, size)) {
+          debug_if(DBGMSG_L3, "[L3] Location CNF received from %i\n", srcId);
+          if (srcId == pendingTxn.id) {
+            cnf_p_rcvd = true;
+            if (L3_msg_getPayload(msg)[L3_CNF_OFFSET_ACCPT] == 1) {
+              cnf_p_accpt = true;
+            } else {
+              cnf_p_accpt = false;
+            }
+          } else if (srcId == matchingTxn.id) {
+            cnf_m_rcvd = true;
+            if (L3_msg_getPayload(msg)[L3_CNF_OFFSET_ACCPT] == 1) {
+              cnf_m_accpt = true;
+            } else {
+              cnf_m_accpt = false;
+            }
+          } else {
+            debug_if(DBGMSG_L3,
+                     "[L3][WARNING] CNF received from unknown trader %i\n",
+                     srcId);
+          }
+
+          // Event B. 둘 다에게서 CNF를 수신했을 경우
+          if (cnf_p_rcvd && cnf_m_rcvd) {
+            // c3. 둘 다에게서 accept 받았을 경우
+            if (cnf_p_accpt && cnf_m_accpt) {
+              debug_if(DBGMSG_L3,
+                       "[L3] Both CNFs received, proceeding to next step\n");
+
+              // 양측 Trader에게 MCH 메시지 보내기 (success)
+              L3_sendMch(pendingTxn.id, 1);
+              L3_sendMch(matchingTxn.id, 1);
+
+              // reset & go to idle
+              pc.printf(
+                  "[L3] Transaction between %i & %i completed successfully!\n",
+                  pendingTxn.id, matchingTxn.id);
+              L3_resetAll();
+              main_state = L3STATE_IDLE;
+            } else {
+              // !c3. 둘 중 적어도 한 명이 reject 했을 경우
+              debug_if(
+                  DBGMSG_L3,
+                  "[L3] CNFs received, but at least one reject, resetting\n");
+              // 양측 Trader에게 MCH 메시지 보내기 (reject)
+              L3_sendMch(pendingTxn.id, 0);
+              L3_sendMch(matchingTxn.id, 0);
+
+              // reset & go to idle
+              L3_resetAll();
+              main_state = L3STATE_IDLE;
+            }
+          }
+          L3_event_clearEventFlag(L3_event_msgRcvd);
+        } else {
+          // CNF 메시지가 아닌 TXN 메시지나 알 수 없는 메시지가 온 경우
+          L3_event_clearEventFlag(L3_event_msgRcvd);
+          debug_if(DBGMSG_L3,
+                   "[L3] unknown PDU ignored in WAIT_LOC_CNF state\n");
+        }
+      }
+      // Event D. CNF 송신 timeout
+      if (L3_event_checkEventFlag(L3_event_timeout)) {
+        debug_if(DBGMSG_L3, "[L3] CNF timeout occurred\n");
+
+        // 양측 Trader에게 MCH 메시지 보내기 (reject)
+        L3_sendMch(pendingTxn.id, 0);
+        L3_sendMch(matchingTxn.id, 0);
+
+        L3_event_clearEventFlag(L3_event_timeout);
+        // reset & go to idle
+        L3_resetAll();
+        main_state = L3STATE_IDLE;
+      }
+      break;
   }
