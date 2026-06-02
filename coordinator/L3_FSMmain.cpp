@@ -15,12 +15,26 @@ static uint8_t prev_state = main_state;
 
 static uint8_t L3SeqNum = 1;
 static L3_txnInfo_t pendingTxn;
+static uint8_t hasPendingTxn = 0;
 
 void L3_initFSM(void) {
 }
 
 static uint8_t L3_signalConditionPassed(int16_t rssi) {
   return rssi >= L3_MIN_RSSI;
+}
+
+static uint8_t L3_pairConditionPassed(L3_txnInfo_t* firstTxn,
+                                      L3_txnInfo_t* secondTxn) {
+  return L3_signalConditionPassed(firstTxn->signal) &&
+         L3_signalConditionPassed(secondTxn->signal) &&
+         firstTxn->isSeller != secondTxn->isSeller &&
+         firstTxn->goods == secondTxn->goods;
+}
+
+static void L3_resetPendingTxn(void) {
+  memset(&pendingTxn, 0, sizeof(L3_txnInfo_t));
+  hasPendingTxn = 0;
 }
 
 static uint8_t L3_getNextSeqNum(void) {
@@ -33,6 +47,7 @@ static uint8_t L3_getNextSeqNum(void) {
 // action 1: TXN 메시지 내용을 pendingTxn에 저장하는 함수
 static void L3_storeTxn(L3_txnInfo_t* txnInfo) {
   pendingTxn = *txnInfo;
+  hasPendingTxn = 1;
 
   debug_if(DBGMSG_L3,
            "[L3] stored TXN id:%i signal:%i seller:%i goods:%i price:%i\n",
@@ -91,8 +106,58 @@ void L3_FSMrun(void) {
       break;
 
     case L3STATE_WAIT_PAIR:
-      if (L3_event_checkEventFlag(L3_event_dataSendCnf)) {
+      if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
+        uint8_t* dataPtr = L3_LLI_getMsgPtr();
+        uint8_t size = L3_LLI_getSize();
+        L3_txnInfo_t txnInfo;
+
+        int16_t rssi = L3_LLI_getRssi();
+
+        if (L3_msg_decodeTxn(dataPtr, size, &txnInfo)) {
+          txnInfo.signal = rssi;
+
+          if (!L3_signalConditionPassed(txnInfo.signal)) {
+            debug_if(DBGMSG_L3,
+                     "[L3] TXN ignored in WAIT_PAIR, RSSI %i is lower than minimum %i\n",
+                     rssi, L3_MIN_RSSI);
+          } else if (!hasPendingTxn) {
+            debug_if(DBGMSG_L3,
+                     "[L3][WARNING] WAIT_PAIR has no pending TXN, reset to IDLE\n");
+            main_state = L3STATE_IDLE;
+          } else if (txnInfo.id == pendingTxn.id) {
+            debug_if(DBGMSG_L3,
+                     "[L3] duplicated TXN from trader %i ignored in WAIT_PAIR\n",
+                     txnInfo.id);
+          } else if (L3_pairConditionPassed(&pendingTxn, &txnInfo)) {
+            L3_timer_stopTimer();
+
+            debug_if(DBGMSG_L3,
+                     "[L3] pair candidate found: trader %i <-> trader %i\n",
+                     pendingTxn.id, txnInfo.id);
+
+            L3_resetPendingTxn();
+            main_state = L3STATE_IDLE;
+          } else {
+            debug_if(DBGMSG_L3,
+                     "[L3] TXN from trader %i does not match pending trader %i\n",
+                     txnInfo.id, pendingTxn.id);
+          }
+        } else if (L3_msg_checkIfCnf(dataPtr, size)) {
+          debug_if(DBGMSG_L3, "[L3] CNF ignored in WAIT_PAIR state\n");
+        } else {
+          debug_if(DBGMSG_L3, "[L3] unknown PDU ignored in WAIT_PAIR state\n");
+        }
+
+        L3_event_clearEventFlag(L3_event_msgRcvd);
+      } else if (L3_event_checkEventFlag(L3_event_dataSendCnf)) {
         L3_event_clearEventFlag(L3_event_dataSendCnf);
+      } else if (!L3_timer_getTimerStatus()) {
+        debug_if(DBGMSG_L3,
+                 "[L3] WAIT_PAIR timeout for trader %i, reset to IDLE\n",
+                 pendingTxn.id);
+
+        L3_resetPendingTxn();
+        main_state = L3STATE_IDLE;
       }
       break;
 
