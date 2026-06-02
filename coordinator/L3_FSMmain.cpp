@@ -96,8 +96,8 @@ void L3_resetAll() {
   cnf_m_rcvd = false;
   cnf_p_accpt = false;
   cnf_m_accpt = false;
-  pendingTxn = {0, 0, 0, 0};
-  matchingTxn = {0, 0, 0, 0};
+  memset(&pendingTxn, 0, sizeof(L3_txnInfo_t));
+  memset(&matchingTxn, 0, sizeof(L3_txnInfo_t));
   L3_timer_stopTimer();
   L3_event_clearAllEventFlag();
 }
@@ -320,3 +320,4 @@ void L3_FSMrun(void) {
       }
       break;
   }
+}
