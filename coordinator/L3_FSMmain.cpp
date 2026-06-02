@@ -20,6 +20,8 @@ static uint8_t L3SeqNum = 1;
 static L3_txnInfo_t pendingTxn;
 static L3_txnInfo_t matchingTxn;  // A와 매칭되는 B의 txn 정보
 
+static uint16_t avg_price = 0;  // A와 B의 가격 평균, 임의 초기값 0
+
 static bool cnf_p_rcvd = false;
 static bool cnf_m_rcvd = false;
 
@@ -29,6 +31,7 @@ static bool cnf_m_accpt = false;  // matchingTxn으로부터 받은 cnf
 // serial port interface
 static Serial pc(USBTX, USBRX);
 
+// c1. 신호 조건 검사 함수 (RSSI 기반)
 static uint8_t L3_signalConditionPassed(int16_t rssi) {
   return rssi >= L3_MIN_RSSI;
 }
@@ -50,9 +53,8 @@ static void L3_storeTxn(L3_txnInfo_t* txnInfo) {
 }
 
 // action 3-1: Trader에게 PRICE REC 메시지 보내는 함수
-static void L3_sendRecPrice(uint8_t traderId, uint16_t price) {
+static void L3_sendRecPrice(uint8_t traderId, uint16_t avg_price) {
   uint8_t rec[L3_MSG_REC_SIZE];
-  uint16_t avg_price = (price + pendingTxn.price) / 2;
   uint8_t pduSize = L3_msg_encodeRec(rec, L3_getNextSeqNum(), L3_COORDINATOR_ID,
                                      traderId, avg_price);
   L3_LLI_dataReqFunc(rec, pduSize, traderId);
@@ -102,7 +104,7 @@ void L3_resetAll() {
   L3_event_clearAllEventFlag();
 }
 
-void L3_initFSM(uint8_t destId) {}
+void L3_initFSM() { L3_resetAll(); }
 
 void L3_FSMrun(void) {
   if (prev_state != main_state) {
@@ -182,8 +184,10 @@ void L3_FSMrun(void) {
           if (cnf_p_rcvd && cnf_m_rcvd) {
             // c3. 둘 다에게서 accept 받았을 경우
             if (cnf_p_accpt && cnf_m_accpt) {
-              debug_if(DBGMSG_L3,
-                       "[L3] Both CNFs received, proceeding to next step\n");
+              pc.printf("[L3] Both traders accepted price %i \n", avg_price);
+              pc.printf(
+                  "[L3] Sending Both traders LOC REC %i to both traders\n",
+                  AVG_LOC);
 
               // 양측 Trader에게 LOC REC 메시지 보내기
               L3_sendRecLoc(pendingTxn.id);
@@ -202,8 +206,7 @@ void L3_FSMrun(void) {
               main_state = L3STATE_WAIT_LOC_CNF;
             } else {
               // !c3. 둘 중 적어도 한 명이 reject 했을 경우
-              debug_if(
-                  DBGMSG_L3,
+              pc.printf(
                   "[L3] CNFs received, but at least one reject, resetting\n");
               // 양측 Trader에게 MCH 메시지 보내기 (reject)
               L3_sendMch(pendingTxn.id, 0);
@@ -224,7 +227,7 @@ void L3_FSMrun(void) {
       }
       // Event D. CNF 송신 timeout
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        debug_if(DBGMSG_L3, "[L3] CNF timeout occurred\n");
+        pc.printf("[L3] CNF timeout occurred, dropping both traders\n");
 
         // 양측 Trader에게 MCH 메시지 보내기 (reject)
         L3_sendMch(pendingTxn.id, 0);
@@ -270,8 +273,10 @@ void L3_FSMrun(void) {
           if (cnf_p_rcvd && cnf_m_rcvd) {
             // c3. 둘 다에게서 accept 받았을 경우
             if (cnf_p_accpt && cnf_m_accpt) {
-              debug_if(DBGMSG_L3,
-                       "[L3] Both CNFs received, proceeding to next step\n");
+              pc.printf("[L3] Both traders accepted price %i \n", avg_price);
+              pc.printf(
+                  "[L3] Sending Both traders LOC REC %i to both traders\n",
+                  AVG_LOC);
 
               // 양측 Trader에게 MCH 메시지 보내기 (success)
               L3_sendMch(pendingTxn.id, 1);
@@ -285,8 +290,7 @@ void L3_FSMrun(void) {
               main_state = L3STATE_IDLE;
             } else {
               // !c3. 둘 중 적어도 한 명이 reject 했을 경우
-              debug_if(
-                  DBGMSG_L3,
+              pc.printf(
                   "[L3] CNFs received, but at least one reject, resetting\n");
               // 양측 Trader에게 MCH 메시지 보내기 (reject)
               L3_sendMch(pendingTxn.id, 0);
@@ -307,7 +311,7 @@ void L3_FSMrun(void) {
       }
       // Event D. CNF 송신 timeout
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        debug_if(DBGMSG_L3, "[L3] CNF timeout occurred\n");
+        pc.printf("[L3] CNF timeout occurred, dropping both traders\n");
 
         // 양측 Trader에게 MCH 메시지 보내기 (reject)
         L3_sendMch(pendingTxn.id, 0);
