@@ -49,6 +49,7 @@ typedef struct L3_txnInfo {
   uint8_t isSeller;
   uint8_t goods;
   uint16_t price;
+  int16_t signal;
 } L3_txnInfo_t;
 
 static uint16_t L3_msg_readUint16(uint8_t* dataPtr);
