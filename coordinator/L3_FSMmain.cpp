@@ -18,11 +18,11 @@ static uint8_t prev_state = main_state;
 // FSM context variables
 static uint8_t L3SeqNum = 1;
 static L3_txnInfo_t pendingTxn;
-<<<<<<< HEAD
 static uint8_t hasPendingTxn = 0;
-=======
 static L3_txnInfo_t matchingTxn;  // A와 매칭되는 B의 txn 정보
->>>>>>> af9ec1cf2610157357af8b9878f7f521014a6463
+
+#define L3_MAX_RETRY 3
+static uint8_t rtylst[256] = {0}; // trader 조합(id_A ^ id_B)에 대한 매칭 시도 횟수
 
 static uint16_t avg_price = 0;  // A와 B의 가격 평균, 임의 초기값 0
 
@@ -40,6 +40,7 @@ static uint8_t L3_signalConditionPassed(int16_t rssi) {
   return rssi >= L3_MIN_RSSI;
 }
 
+// c2. pair 조건 검사 함수 (seller/buyer, goods 일치, 신호 세기)
 static uint8_t L3_pairConditionPassed(L3_txnInfo_t* firstTxn,
                                       L3_txnInfo_t* secondTxn) {
   return L3_signalConditionPassed(firstTxn->signal) &&
@@ -48,11 +49,7 @@ static uint8_t L3_pairConditionPassed(L3_txnInfo_t* firstTxn,
          firstTxn->goods == secondTxn->goods;
 }
 
-static void L3_resetPendingTxn(void) {
-  memset(&pendingTxn, 0, sizeof(L3_txnInfo_t));
-  hasPendingTxn = 0;
-}
-
+// 시퀀스 번호 생성 함수
 static uint8_t L3_getNextSeqNum(void) {
   uint8_t seqNum = L3SeqNum;
   L3SeqNum = (L3SeqNum + 1) % L3_MSG_MAX_SEQNUM;
@@ -163,10 +160,6 @@ void L3_FSMrun(void) {
       break;
 
     case L3STATE_WAIT_PAIR:
-      // WAIT_PAIR 상태에서는 다음 3가지를 기다린다.
-      // 1) 또 다른 TXN이 와서 pair 조건을 만족하는지
-      // 2) 예상 밖의 CNF / unknown PDU가 들어오는지
-      // 3) pair timeout이 발생하는지
       if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
         // 하위 계층에서 새로운 PDU가 도착했으므로, 내용을 읽어서
         // TXN / CNF / unknown 여부를 다시 판별한다.
@@ -198,29 +191,54 @@ void L3_FSMrun(void) {
                      "[L3] duplicated TXN from trader %i ignored in WAIT_PAIR\n",
                      txnInfo.id);
           } else if (L3_pairConditionPassed(&pendingTxn, &txnInfo)) {
-            // seller/buyer 조합, goods 일치, RSSI 조건까지 모두 통과하면
-            // pair 후보가 성립한 것으로 보고 타이머를 멈춘다.
+            // seller/buyer 조합, goods 일치, RSSI 조건까지 모두 통과 (조건 c2 만족)
             L3_timer_stopTimer();
 
             debug_if(DBGMSG_L3,
                      "[L3] pair candidate found: trader %i <-> trader %i\n",
                      pendingTxn.id, txnInfo.id);
 
-            // 현재 구현에서는 pair 성립 후 다음 단계 로직이 아직 없으므로,
-            // 보관 중이던 TXN을 정리하고 IDLE로 복귀한다.
-            L3_resetPendingTxn();
-            main_state = L3STATE_IDLE;
+            // 두 Trader 간의 재시도 횟수 확인 (조건 c4, c5)
+            uint8_t pair_key = pendingTxn.id ^ txnInfo.id;
+            
+            if (rtylst[pair_key] < L3_MAX_RETRY) { // 조건 c4 만족
+              if (rtylst[pair_key] == 0) {
+                // 조건 c5 만족: 최초 매칭 시 재시도 리스트 업데이트 (action 2)
+                rtylst[pair_key] = 1;
+              } else {
+                rtylst[pair_key]++;
+              }
+              
+              // action 3: Send REC
+              avg_price = (pendingTxn.price + txnInfo.price) / 2;
+              L3_sendRecPrice(pendingTxn.id, avg_price);
+              L3_sendRecPrice(txnInfo.id, avg_price);
+              
+              // action 6 & 7: 타이머 재시작 (앞서 stop했으므로 다시 start)
+              L3_timer_startTimer();
+              
+              matchingTxn = txnInfo;
+              main_state = L3STATE_WAIT_PRICE_CNF;
+            } else {
+              // 재시도 횟수 초과 시 페어링 실패로 간주하고 IDLE 복귀
+              debug_if(DBGMSG_L3,
+                       "[L3] retry count exceeded (%i) for trader %i and %i\n",
+                       rtylst[pair_key], pendingTxn.id, txnInfo.id);
+              L3_resetAll();
+              main_state = L3STATE_IDLE;
+            }
           } else {
-            // TXN이긴 하지만 seller/buyer 방향 또는 goods 조건이 맞지 않으면
-            // 현재 pending 거래와는 pair로 묶지 않고 그냥 무시한다.
+            // TXN이긴 하지만 조건(c2)이 맞지 않으면 (!c2) 아무 액션 없이 IDLE 복귀
             debug_if(DBGMSG_L3,
-                     "[L3] TXN from trader %i does not match pending trader %i\n",
-                     txnInfo.id, pendingTxn.id);
+                     "[L3] TXN does not meet pair conditions (!c2), reset to IDLE\n");
+            L3_resetAll();
+            main_state = L3STATE_IDLE;
           }
         } else if (L3_msg_checkIfCnf(dataPtr, size)) {
-          // WAIT_PAIR 상태에서는 CNF가 먼저 오는 시나리오를 정상 흐름으로 보지 않는다.
-          // 로그만 남기고 상태는 유지한다.
-          debug_if(DBGMSG_L3, "[L3] CNF ignored in WAIT_PAIR state\n");
+          // WAIT_PAIR 상태에서 CNF가 오는 것(이벤트 B)은 비정상이므로 IDLE 복귀
+          debug_if(DBGMSG_L3, "[L3] CNF received in WAIT_PAIR state, reset to IDLE\n");
+          L3_resetAll();
+          main_state = L3STATE_IDLE;
         } else {
           // 타입을 판별할 수 없는 PDU는 잘못된 메시지로 보고 무시한다.
           debug_if(DBGMSG_L3, "[L3] unknown PDU ignored in WAIT_PAIR state\n");
@@ -229,22 +247,22 @@ void L3_FSMrun(void) {
         // msgRcvd 이벤트는 이번 수신 패킷에 대한 처리가 끝났으므로 지운다.
         L3_event_clearEventFlag(L3_event_msgRcvd);
       } else if (L3_event_checkEventFlag(L3_event_dataSendCnf)) {
-        // WAIT_PAIR 상태에서는 우리가 새로 보내는 데이터가 거의 없지만,
         // 하위 계층 완료 이벤트가 들어오면 일단 소비만 하고 넘어간다.
         L3_event_clearEventFlag(L3_event_dataSendCnf);
-<<<<<<< HEAD
+      } else if (L3_event_checkEventFlag(L3_event_timeout)) {
+        // 이벤트 D: CNF 송신 timeout 등 이벤트 기반 타임아웃 발생 시 IDLE 복귀
+        L3_event_clearEventFlag(L3_event_timeout);
+        debug_if(DBGMSG_L3, "[L3] timeout event in WAIT_PAIR, reset to IDLE\n");
+        L3_resetAll();
+        main_state = L3STATE_IDLE;
       } else if (!L3_timer_getTimerStatus()) {
-        // 타이머가 종료되면 pair 대기 실패로 보고 pending 정보를 정리한 뒤
-        // 다시 처음 상태로 돌아간다.
+        // 이벤트 C: 타이머가 종료되면(PAIR timeout) pending 정보를 정리(Action 8)하고 IDLE 복귀
         debug_if(DBGMSG_L3,
                  "[L3] WAIT_PAIR timeout for trader %i, reset to IDLE\n",
                  pendingTxn.id);
 
-        L3_resetPendingTxn();
+        L3_resetAll();
         main_state = L3STATE_IDLE;
-=======
-        // 개발 더
->>>>>>> af9ec1cf2610157357af8b9878f7f521014a6463
       }
       break;
 
