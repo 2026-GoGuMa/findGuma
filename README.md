@@ -109,7 +109,7 @@ BASECODE_CAPSTONE/
 
 | 타입 | 설명 |
 |------|------|
-| `TXN` | 수신 신호 + 거래 정보: `id`, `signal`, `isSeller`, `goods`, `price` |
+| `TXN` | 거래 정보: `id`, `isSeller`, `goods`, `price` |
 | `CNF` | 제안 수락 여부: `price_cnf` \| `loc_cnf` |
 
 > `REC_P`, `REC_L`은 모두 `REC` PDU에 종속된 하위 PDU로 정의합니다.

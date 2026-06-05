@@ -12,6 +12,8 @@ build/
 BUILD/
 out/
 output/
+coordinator/BUILD/
+trader/BUILD/
 
 # IDE / editor
 .idea/

@@ -7,6 +7,9 @@ void L3_LLI_dataInd(uint8_t* dataPtr, uint8_t srcId, uint8_t size, int8_t snr,
                     int16_t rssi);
 uint8_t* L3_LLI_getMsgPtr();
 uint8_t L3_LLI_getSize();
+// L2에서 RSSI 가져오는 함수
+int16_t L3_LLI_getRssi();
+uint8_t L3_LLI_getSrcId();
 void L3_LLI_setDataReqFunc(void (*funcPtr)(uint8_t*, uint8_t, uint8_t));
 void L3_LLI_setReconfigSrcIdReqFunc(void (*funcPtr)(uint8_t));
 void L3_LLI_dataCnf(uint8_t res);

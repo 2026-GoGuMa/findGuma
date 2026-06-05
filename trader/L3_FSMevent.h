@@ -10,13 +10,11 @@
 */
 
 typedef enum L3_event {
-  L3_event_msgRcvd      = 0,  // L2로부터 메시지 수신됨(하위 계층 → L3)
-  L3_event_dataSendCnf  = 1,  // 데이터 전송 완료 확인 
-  L3_event_waitPairRcvd = 2,  // Event A: Coordinator로부터 WAIT_PAIR 수신
-  L3_event_recRcvd      = 3,  // Event B: Coordinator로부터 REC PDU 수신
-  L3_event_mchRcvd      = 4,  // Event C: Coordinator로부터 MCH PDU 수신
-  L3_event_timeout      = 5,  // Event D: 타이머 만료
-  L3_event_recfgSrcIdCnf = 6, // SrcId 재설정 완료 확인
+  L3_event_msgRcvd = 2,
+  L3_event_timeout = 3,
+  L3_event_dataToSend = 4,
+  L3_event_dataSendCnf = 5,
+  L3_event_recfgSrcIdCnf = 6
 } L3_event_e;
 
 void L3_event_setEventFlag(L3_event_e event);     // 이벤트 발생 표시 (1로 세팅)  
