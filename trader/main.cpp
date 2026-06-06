@@ -1,27 +1,35 @@
-#include "L2_FSMmain.h"
+﻿#include "L2_FSMmain.h"
 #include "L3_FSMmain.h"
+#include "L3_FSMevent.h"
 #include "mbed.h"
 #include "protocol_parameters.h"
 #include "string.h"
 
-// 시리얼 포트 (PC와 통신용)
+// ?쒕━???ы듃 (PC? ?듭떊??
 Serial pc(USBTX, USBRX);
 
-// 전역 변수 (수정 금지) ------------------------------------------
-uint8_t input_thisId  = 1;  // 이 노드의 ID
+// ?꾩뿭 蹂??(?섏젙 湲덉?) ------------------------------------------
+uint8_t input_thisId  = 1;  // ???몃뱶??ID
 
-// 프로그램 시작점 ------------------------------------------------
+// ?꾨줈洹몃옩 ?쒖옉??------------------------------------------------
+// 시리얼 인터럽트 콜백: 사용자가 1 또는 0 입력 시 이벤트 세팅
+void onSerialRx(void) {
+  char c = pc.getc();
+  if (c == '1') L3_event_setEventFlag(L3_event_userAccept);
+  else if (c == '0') L3_event_setEventFlag(L3_event_userReject);
+}
+
 int main(void) {
   pc.printf(
       "------------------ protocol stack starts! --------------------------\n");
 
-  // 사용자 입력 받기
+  // ?ъ슜???낅젰 諛쏄린
   pc.printf(":: ID for this node : ");
   pc.scanf("%d", &input_thisId);
 
-  uint8_t  input_isSeller = 0;  // 판매자 여부 (0: 구매자, 1: 판매자)
-  uint8_t  input_goods    = 0;  // 상품 종류
-  uint16_t input_price    = 0;  // 희망 가격
+  uint8_t  input_isSeller = 0;  // ?먮ℓ???щ? (0: 援щℓ?? 1: ?먮ℓ??
+  uint8_t  input_goods    = 0;  // ?곹뭹 醫낅쪟
+  uint16_t input_price    = 0;  // ?щ쭩 媛寃?
 
   pc.printf(":: isSeller (0=buyer / 1=seller) : ");
   pc.scanf("%d", &input_isSeller);
@@ -34,19 +42,21 @@ int main(void) {
 
   pc.getc();
 
-  // 입력값 확인 출력
+  // ?낅젰媛??뺤씤 異쒕젰
   pc.printf("Trader id=%u  coord=%u  isSeller=%u  goods=%u  price=$%u\n",
              input_thisId, L3_COORDINATOR_ID, input_isSeller,
              input_goods, input_price);
 
-  // FSM 초기화
+  // FSM 珥덇린??
   L2_initFSM(input_thisId);
   L3_initFSM(input_thisId, L3_COORDINATOR_ID, input_isSeller,
               input_goods, input_price);
 
-  // 메인 루프 : L2 → L3 순서로 반복 실행
+  pc.attach(&onSerialRx, Serial::RxIrq);  // 시리얼 인터럽트 등록
+
+  // 硫붿씤 猷⑦봽 : L2 ??L3 ?쒖꽌濡?諛섎났 ?ㅽ뻾
   while (1) {
-    L2_FSMrun();   // L2 FSM (무선 송수신 처리)
-    L3_FSMrun();   // L3 FSM (거래 협상 처리)
+    L2_FSMrun();   // L2 FSM (臾댁꽑 ?≪닔??泥섎━)
+    L3_FSMrun();   // L3 FSM (嫄곕옒 ?묒긽 泥섎━)
   }
 }

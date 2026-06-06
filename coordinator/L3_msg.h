@@ -50,6 +50,7 @@ typedef struct L3_txnInfo {
   uint8_t isSeller;
   uint8_t goods;
   uint16_t price;
+  int16_t signal;
 } L3_txnInfo_t;
 
 static uint16_t L3_msg_readUint16(uint8_t* dataPtr);
@@ -72,4 +73,5 @@ uint8_t L3_msg_encodeMch(uint8_t* msg, uint8_t seq, uint8_t srcId,
 uint8_t L3_msg_encodeRec(uint8_t* msg, uint8_t seq, uint8_t srcId,
                          uint8_t dstId, uint16_t info);
 
-int L3_msg_decodeTxn(uint8_t* msg, uint8_t size, L3_txnInfo_t* txnInfo);
+int L3_msg_decodeTxn(uint8_t* msg, uint8_t size, L3_txnInfo_t* txnInfo,
+                     int16_t rssi);
