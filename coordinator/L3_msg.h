@@ -72,4 +72,5 @@ uint8_t L3_msg_encodeMch(uint8_t* msg, uint8_t seq, uint8_t srcId,
 uint8_t L3_msg_encodeRec(uint8_t* msg, uint8_t seq, uint8_t srcId,
                          uint8_t dstId, uint16_t info);
 
-int L3_msg_decodeTxn(uint8_t* msg, uint8_t size, L3_txnInfo_t* txnInfo);
+int L3_msg_decodeTxn(uint8_t* msg, uint8_t size, L3_txnInfo_t* txnInfo,
+                     int16_t rssi);

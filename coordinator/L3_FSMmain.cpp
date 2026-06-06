@@ -139,7 +139,8 @@ void L3_FSMrun(void) {
 
         // 메시지가 TXN이라면 내용을 꺼내서 TXNinfo에 담음
         if (L3_msg_decodeTxn(dataPtr, size, &txnInfo)) {
-          if (L3_signalConditionPassed(rssi)) {
+        if (L3_msg_decodeTxn(dataPtr, size, &txnInfo, rssi)) {
+          if (L3_signalConditionPassed(txnInfo.signal)) {
             L3_storeTxn(&txnInfo);
             L3_sendWaitPair(txnInfo.id);
             L3_timer_startTimer();
@@ -147,7 +148,7 @@ void L3_FSMrun(void) {
           } else {
             debug_if(DBGMSG_L3,
                      "[L3] TXN ignored, RSSI %i is lower than minimum %i\n",
-                     rssi, L3_MIN_RSSI);
+                     txnInfo.signal, L3_MIN_RSSI);
           }
         } else if (L3_msg_checkIfCnf(dataPtr, size)) {
           debug_if(DBGMSG_L3, "[L3] CNF ignored in IDLE state\n");
@@ -169,16 +170,15 @@ void L3_FSMrun(void) {
 
         int16_t rssi = L3_LLI_getRssi();
 
-        if (L3_msg_decodeTxn(dataPtr, size, &txnInfo)) {
+        if (L3_msg_decodeTxn(dataPtr, size, &txnInfo, rssi)) {
           // TXN으로 해석 가능하면 상대 trader의 거래 정보라고 보고,
           // 수신 신호 세기까지 포함해서 pair 가능 여부를 판단한다.
-          txnInfo.signal = rssi;
-
           if (!L3_signalConditionPassed(txnInfo.signal)) {
             // 신호가 너무 약하면 이 TXN은 매칭 후보로 보지 않는다.
             debug_if(DBGMSG_L3,
-                     "[L3] TXN ignored in WAIT_PAIR, RSSI %i is lower than minimum %i\n",
-                     rssi, L3_MIN_RSSI);
+                     "[L3] TXN ignored in WAIT_PAIR, RSSI %i is lower than "
+                     "minimum %i\n",
+                     txnInfo.signal, L3_MIN_RSSI);
           } else if (!hasPendingTxn) {
             // 원래 대기 중이어야 할 첫 TXN이 없다면 상태가 꼬인 것이므로
             // 안전하게 IDLE로 되돌린다.
