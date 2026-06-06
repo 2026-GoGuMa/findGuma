@@ -22,7 +22,8 @@ static uint8_t hasPendingTxn = 0;
 static L3_txnInfo_t matchingTxn;  // A와 매칭되는 B의 txn 정보
 
 #define L3_MAX_RETRY 3
-static uint8_t rtylst[256] = {0}; // trader 조합(id_A ^ id_B)에 대한 매칭 시도 횟수
+static uint8_t rtylst[256] = {
+    0};  // trader 조합(id_A ^ id_B)에 대한 매칭 시도 횟수
 
 static uint16_t avg_price = 0;  // A와 B의 가격 평균, 임의 초기값 0
 
@@ -138,7 +139,6 @@ void L3_FSMrun(void) {
         int16_t rssi = L3_LLI_getRssi();
 
         // 메시지가 TXN이라면 내용을 꺼내서 TXNinfo에 담음
-        if (L3_msg_decodeTxn(dataPtr, size, &txnInfo)) {
         if (L3_msg_decodeTxn(dataPtr, size, &txnInfo, rssi)) {
           if (L3_signalConditionPassed(txnInfo.signal)) {
             L3_storeTxn(&txnInfo);
@@ -183,15 +183,19 @@ void L3_FSMrun(void) {
             // 원래 대기 중이어야 할 첫 TXN이 없다면 상태가 꼬인 것이므로
             // 안전하게 IDLE로 되돌린다.
             debug_if(DBGMSG_L3,
-                     "[L3][WARNING] WAIT_PAIR has no pending TXN, reset to IDLE\n");
+                     "[L3][WARNING] WAIT_PAIR has no pending TXN, reset to "
+                     "IDLE\n");
             main_state = L3STATE_IDLE;
           } else if (txnInfo.id == pendingTxn.id) {
-            // 같은 trader가 같은 요청을 다시 보낸 경우는 중복으로 보고 무시한다.
-            debug_if(DBGMSG_L3,
-                     "[L3] duplicated TXN from trader %i ignored in WAIT_PAIR\n",
-                     txnInfo.id);
+            // 같은 trader가 같은 요청을 다시 보낸 경우는 중복으로 보고
+            // 무시한다.
+            debug_if(
+                DBGMSG_L3,
+                "[L3] duplicated TXN from trader %i ignored in WAIT_PAIR\n",
+                txnInfo.id);
           } else if (L3_pairConditionPassed(&pendingTxn, &txnInfo)) {
-            // seller/buyer 조합, goods 일치, RSSI 조건까지 모두 통과 (조건 c2 만족)
+            // seller/buyer 조합, goods 일치, RSSI 조건까지 모두 통과 (조건
+            // c2 만족)
             L3_timer_stopTimer();
 
             debug_if(DBGMSG_L3,
@@ -200,23 +204,24 @@ void L3_FSMrun(void) {
 
             // 두 Trader 간의 재시도 횟수 확인 (조건 c4, c5)
             uint8_t pair_key = pendingTxn.id ^ txnInfo.id;
-            
-            if (rtylst[pair_key] < L3_MAX_RETRY) { // 조건 c4 만족
+
+            if (rtylst[pair_key] < L3_MAX_RETRY) {  // 조건 c4 만족
               if (rtylst[pair_key] == 0) {
-                // 조건 c5 만족: 최초 매칭 시 재시도 리스트 업데이트 (action 2)
+                // 조건 c5 만족: 최초 매칭 시 재시도 리스트 업데이트 (action
+                // 2)
                 rtylst[pair_key] = 1;
               } else {
                 rtylst[pair_key]++;
               }
-              
+
               // action 3: Send REC
               avg_price = (pendingTxn.price + txnInfo.price) / 2;
               L3_sendRecPrice(pendingTxn.id, avg_price);
               L3_sendRecPrice(txnInfo.id, avg_price);
-              
+
               // action 6 & 7: 타이머 재시작 (앞서 stop했으므로 다시 start)
               L3_timer_startTimer();
-              
+
               matchingTxn = txnInfo;
               main_state = L3STATE_WAIT_PRICE_CNF;
             } else {
@@ -228,15 +233,19 @@ void L3_FSMrun(void) {
               main_state = L3STATE_IDLE;
             }
           } else {
-            // TXN이긴 하지만 조건(c2)이 맞지 않으면 (!c2) 아무 액션 없이 IDLE 복귀
+            // TXN이긴 하지만 조건(c2)이 맞지 않으면 (!c2) 아무 액션 없이
+            // IDLE 복귀
             debug_if(DBGMSG_L3,
-                     "[L3] TXN does not meet pair conditions (!c2), reset to IDLE\n");
+                     "[L3] TXN does not meet pair conditions (!c2), reset "
+                     "to IDLE\n");
             L3_resetAll();
             main_state = L3STATE_IDLE;
           }
         } else if (L3_msg_checkIfCnf(dataPtr, size)) {
-          // WAIT_PAIR 상태에서 CNF가 오는 것(이벤트 B)은 비정상이므로 IDLE 복귀
-          debug_if(DBGMSG_L3, "[L3] CNF received in WAIT_PAIR state, reset to IDLE\n");
+          // WAIT_PAIR 상태에서 CNF가 오는 것(이벤트 B)은 비정상이므로 IDLE
+          // 복귀
+          debug_if(DBGMSG_L3,
+                   "[L3] CNF received in WAIT_PAIR state, reset to IDLE\n");
           L3_resetAll();
           main_state = L3STATE_IDLE;
         } else {
@@ -246,21 +255,10 @@ void L3_FSMrun(void) {
 
         // msgRcvd 이벤트는 이번 수신 패킷에 대한 처리가 끝났으므로 지운다.
         L3_event_clearEventFlag(L3_event_msgRcvd);
-      } else if (L3_event_checkEventFlag(L3_event_dataSendCnf)) {
-        // 하위 계층 완료 이벤트가 들어오면 일단 소비만 하고 넘어간다.
-        L3_event_clearEventFlag(L3_event_dataSendCnf);
       } else if (L3_event_checkEventFlag(L3_event_timeout)) {
-        // 이벤트 D: CNF 송신 timeout 등 이벤트 기반 타임아웃 발생 시 IDLE 복귀
+        // 이벤트 D: Pair timeout 발생 시 IDLE 복귀
         L3_event_clearEventFlag(L3_event_timeout);
         debug_if(DBGMSG_L3, "[L3] timeout event in WAIT_PAIR, reset to IDLE\n");
-        L3_resetAll();
-        main_state = L3STATE_IDLE;
-      } else if (!L3_timer_getTimerStatus()) {
-        // 이벤트 C: 타이머가 종료되면(PAIR timeout) pending 정보를 정리(Action 8)하고 IDLE 복귀
-        debug_if(DBGMSG_L3,
-                 "[L3] WAIT_PAIR timeout for trader %i, reset to IDLE\n",
-                 pendingTxn.id);
-
         L3_resetAll();
         main_state = L3STATE_IDLE;
       }
@@ -322,7 +320,8 @@ void L3_FSMrun(void) {
             } else {
               // !c3. 둘 중 적어도 한 명이 reject 했을 경우
               pc.printf(
-                  "[L3] CNFs received, but at least one reject, resetting\n");
+                  "[L3] CNFs received, but at least one reject, "
+                  "resetting\n");
               // 양측 Trader에게 MCH 메시지 보내기 (reject)
               L3_sendMch(pendingTxn.id, 0);
               L3_sendMch(matchingTxn.id, 0);
@@ -399,14 +398,16 @@ void L3_FSMrun(void) {
 
               // reset & go to idle
               pc.printf(
-                  "[L3] Transaction between %i & %i completed successfully!\n",
+                  "[L3] Transaction between %i & %i completed "
+                  "successfully!\n",
                   pendingTxn.id, matchingTxn.id);
               L3_resetAll();
               main_state = L3STATE_IDLE;
             } else {
               // !c3. 둘 중 적어도 한 명이 reject 했을 경우
               pc.printf(
-                  "[L3] CNFs received, but at least one reject, resetting\n");
+                  "[L3] CNFs received, but at least one reject, "
+                  "resetting\n");
               // 양측 Trader에게 MCH 메시지 보내기 (reject)
               L3_sendMch(pendingTxn.id, 0);
               L3_sendMch(matchingTxn.id, 0);
