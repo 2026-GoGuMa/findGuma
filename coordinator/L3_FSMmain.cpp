@@ -164,7 +164,7 @@ void L3_FSMrun(void) {
 
         int16_t rssi = L3_LLI_getRssi();
 
-        // Event A. 메시지가 TXN이라면 내용을 꺼내서 TXNinfo에 담음
+        // Event A. TXN 수신 - 메시지가 TXN이라면 내용을 꺼내서 TXNinfo에 담음
         if (L3_msg_decodeTxn(dataPtr, size, &txnInfo, rssi)) {
           // c1. 신호 세기 확인
           if (L3_signalConditionPassed(txnInfo.signal)) {
@@ -206,8 +206,15 @@ void L3_FSMrun(void) {
           L3_resetAll();
           main_state = L3STATE_IDLE;
         }
+        if (L3_LLI_getSrcId() == pendingTxn.id) {
+          // 같은 trader가 같은 요청을 다시 보낸 경우는 중복으로 보고
+          // 무시한다.
+          debug_if(DBGMSG_L3,
+                   "[L3] duplicated TXN from trader %i ignored in WAIT_PAIR\n",
+                   txnInfo.id);
+        }
 
-        // Event A. 메시지가 TXN이라면 내용을 꺼내서 TXNinfo에 담음
+        // Event A. TXN 수신 - 메시지가 TXN이라면 내용을 꺼내서 TXNinfo에 담음
         if (L3_msg_decodeTxn(dataPtr, size, &txnInfo, rssi)) {
           // c1. 새로운 trader 신호 검사
           if (!L3_signalConditionPassed(txnInfo.signal)) {
@@ -216,13 +223,6 @@ void L3_FSMrun(void) {
                      "[L3] TXN ignored in WAIT_PAIR, RSSI %i is lower than "
                      "minimum %i\n",
                      txnInfo.signal, L3_MIN_RSSI);
-          } else if (txnInfo.id == pendingTxn.id) {
-            // 같은 trader가 같은 요청을 다시 보낸 경우는 중복으로 보고
-            // 무시한다.
-            debug_if(
-                DBGMSG_L3,
-                "[L3] duplicated TXN from trader %i ignored in WAIT_PAIR\n",
-                txnInfo.id);
           }
           // c2. 두 trader의 상보성 조건 검사 (seller/buyer 조합, goods 일치)
           else if (L3_pairConditionPassed(&pendingTxn, &txnInfo)) {
@@ -241,12 +241,19 @@ void L3_FSMrun(void) {
                        "[L3] retry count (%i) exceeded for trader %i and %i\n",
                        try_cnt, pendingTxn.id, txnInfo.id);
               main_state = L3STATE_WAIT_PAIR;
-            } else {
-              // c4, c5 만족 시
+            }
+            // c4, c5 만족 시
+            else {
               // action 3: Send REC
               avg_price = (pendingTxn.price + txnInfo.price) / 2;
               L3_sendRecPrice(pendingTxn.id, avg_price);
               L3_sendRecPrice(txnInfo.id, avg_price);
+
+              debug_if(
+                  DBGMSG_L3,
+                  "[L3] REC sent to both traders (%i, %i) with avg price %i, "
+                  "waiting for CNF\n",
+                  pendingTxn.id, txnInfo.id, avg_price);
 
               // action 6 & 7: 타이머 재시작 (앞서 stop했으므로 다시 start)
               L3_timer_startTimer();
