@@ -62,7 +62,8 @@ uint8_t L3_msg_encodeRec(uint8_t* msg, uint8_t seq, uint8_t srcId,
 }
 
 // pdu에서 데이터 꺼내는 함수
-int L3_msg_decodeTxn(uint8_t* msg, uint8_t size, L3_txnInfo_t* txnInfo) {
+int L3_msg_decodeTxn(uint8_t* msg, uint8_t size, L3_txnInfo_t* txnInfo,
+                     int16_t rssi) {
   if (!L3_msg_checkIfTxn(msg, size)) return 0;
 
   uint8_t* data = L3_msg_getPayload(msg);
@@ -70,6 +71,7 @@ int L3_msg_decodeTxn(uint8_t* msg, uint8_t size, L3_txnInfo_t* txnInfo) {
   txnInfo->isSeller = data[L3_TXN_OFFSET_ISSELLER];
   txnInfo->goods = data[L3_TXN_OFFSET_GOODS];
   txnInfo->price = L3_msg_readUint16(&data[L3_TXN_OFFSET_PRICE]);
+  txnInfo->signal = rssi;
 
   return 1;
 }
