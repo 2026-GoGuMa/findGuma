@@ -47,3 +47,5 @@ docs/
 mbed-os/
 BUILD/
 .build/
+
+.vscode/
