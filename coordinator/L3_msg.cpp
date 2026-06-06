@@ -2,10 +2,13 @@
 
 #include "mbed.h"
 
+// REC Payload 중 2byte(price, loc) 의 경우 사용 
+// 바이트 배열 2칸을 uint16 복원 
 static uint16_t L3_msg_readUint16(uint8_t* dataPtr) {
   return ((uint16_t)dataPtr[0] << 8) | dataPtr[1];
 }
 
+// uint16에서 바이트 배열 2칸으로 분리 저장
 static void L3_msg_writeUint16(uint8_t* dataPtr, uint16_t data) {
   dataPtr[0] = (uint8_t)(data >> 8);
   dataPtr[1] = (uint8_t)(data & 0xFF);
@@ -13,6 +16,7 @@ static void L3_msg_writeUint16(uint8_t* dataPtr, uint16_t data) {
 
 int L3_msg_checkMsgType(uint8_t* msg) { return msg[L3_MSG_OFFSET_TYPE]; }
 
+// 메시지를 바이트 배열로 조립하는 함수 
 uint8_t L3_msg_encodeMsg(uint8_t* msg, uint8_t type, uint8_t seq, uint8_t srcId,
                          uint8_t destId, uint8_t* data, int len) {
   msg[L3_MSG_OFFSET_TYPE] = type;
@@ -55,6 +59,7 @@ uint8_t L3_msg_encodeMch(uint8_t* msg, uint8_t seq, uint8_t srcId,
   return L3_msg_encodeMsg(msg, L3_MSG_TYPE_MCH, seq, srcId, dstId, &accept, 1);
 }
 
+// Rec 메시지 조립 
 uint8_t L3_msg_encodeRec(uint8_t* msg, uint8_t seq, uint8_t srcId,
                          uint8_t dstId, uint16_t info) {
   L3_msg_writeUint16(&msg[L3_MSG_OFFSET_PAYLOAD], info);

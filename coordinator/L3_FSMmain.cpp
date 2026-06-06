@@ -6,27 +6,28 @@
 #include "protocol_parameters.h"
 
 // FSM state -------------------------------------------------
-#define L3STATE_IDLE 0
-#define L3STATE_WAIT_PAIR 1
-#define L3STATE_WAIT_PRICE_CNF 2
-#define L3STATE_WAIT_LOC_CNF 3
+#define L3STATE_IDLE 0            // 초기 상태, TXN 수신 대기
+#define L3STATE_WAIT_PAIR 1       // 첫 번째 trader 등록 후 두 번째 trader 대기
+#define L3STATE_WAIT_PRICE_CNF 2  // 양측에 가격 REC 보내고 CNF 대기
+#define L3STATE_WAIT_LOC_CNF 3    // 양측에 위치 REC 보내고 CNF 대기
 
 // state variables
-static uint8_t main_state = L3STATE_IDLE;
-static uint8_t prev_state = main_state;
+static uint8_t main_state = L3STATE_IDLE;  // 현재 상태
+static uint8_t prev_state = main_state;    // 이전 상태(상태 전환 로그용)
 
 // FSM context variables
 static uint8_t L3SeqNum = 1;
-static L3_txnInfo_t pendingTxn;
+static L3_txnInfo_t pendingTxn;   // 먼저 등록한 trader A의 거래(txn) 정보
 static L3_txnInfo_t matchingTxn;  // A와 매칭되는 B의 txn 정보
 
 static uint16_t avg_price = 0;  // A와 B의 가격 평균, 임의 초기값 0
 
-static bool cnf_p_rcvd = false;
-static bool cnf_m_rcvd = false;
+static bool cnf_p_rcvd = false;  // pendingTxn(A) 한테서 CNF 받았나
+static bool cnf_m_rcvd = false;  // matchingTxn(B) 한테서 CNF 받았나
 
-static bool cnf_p_accpt = false;  // pendingTxn으로부터 받은 cnf
-static bool cnf_m_accpt = false;  // matchingTxn으로부터 받은 cnf
+// 양쪽에 price rec 전송 후
+static bool cnf_p_accpt = false;
+static bool cnf_m_accpt = false;
 
 // serial port interface
 static Serial pc(USBTX, USBRX);
@@ -36,6 +37,7 @@ static uint8_t L3_signalConditionPassed(int16_t rssi) {
   return rssi >= L3_MIN_RSSI;
 }
 
+// 메시지마다 순서 번호 붙임 (중복 메시지 거르기 위해)
 static uint8_t L3_getNextSeqNum(void) {
   uint8_t seqNum = L3SeqNum;
   L3SeqNum = (L3SeqNum + 1) % L3_MSG_MAX_SEQNUM;
@@ -107,6 +109,7 @@ void L3_resetAll() {
 void L3_initFSM() { L3_resetAll(); }
 
 void L3_FSMrun(void) {
+  // 이전 상태와 현재 상태가 다른 경우, 로그찍음
   if (prev_state != main_state) {
     debug_if(DBGMSG_L3, "[L3] State transition from %i to %i\n", prev_state,
              main_state);
@@ -114,13 +117,15 @@ void L3_FSMrun(void) {
   }
 
   switch (main_state) {
+    // IDLE 상태에서 메시지 수신 이벤트 왔을 경우
     case L3STATE_IDLE:
       if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
-        uint8_t* dataPtr = L3_LLI_getMsgPtr();
-        uint8_t size = L3_LLI_getSize();
-        L3_txnInfo_t txnInfo;
+        uint8_t* dataPtr =
+            L3_LLI_getMsgPtr();  // 수신된 메시지 바이트 배열의 시작 주소 가져옴
+        uint8_t size = L3_LLI_getSize();  // 수신된 메시지가 몇 바이트인지
+        L3_txnInfo_t txnInfo;             // txn 파싱 결과 담을 구조체 선언
 
-        int16_t rssi = L3_LLI_getRssi();
+        int16_t rssi = L3_LLI_getRssi();  // 신호 세기 가져오기
 
         // 메시지가 TXN이라면 내용을 꺼내서 TXNinfo에 담음
         if (L3_msg_decodeTxn(dataPtr, size, &txnInfo)) {

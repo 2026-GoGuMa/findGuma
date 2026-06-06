@@ -33,9 +33,10 @@
   0  // 2 bytes (price인 경우 0~6만까지, loc인 경우 우편번호로 010**~636**까지
      // 표현 가능)
 
-// L3 Message Size
+// L3 Message Size (페이로드 크기)
 #define L3_TXN_PAYLOAD_SIZE 5
 
+// pdu 전체 = 헤더 + 페이로드 크기
 #define L3_MSG_MCH_SIZE (L3_MSG_OFFSET_PAYLOAD + 1)
 #define L3_MSG_REC_SIZE (L3_MSG_OFFSET_PAYLOAD + 2)
 #define L3_MSG_WAIT_PAIR_SIZE (L3_MSG_OFFSET_PAYLOAD + 0)
