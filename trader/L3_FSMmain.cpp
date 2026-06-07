@@ -121,19 +121,22 @@ void L3_initFSM(uint8_t id, uint8_t cId, uint8_t seller, uint8_t g,
 }
 
 void L3_FSMrun(void) {
+  // 이전 상태와 현재 상태가 다른 경우, 로그 찍음
   if (prev_state != main_state) {
-    debug_if(DBGMSG_L3, "[L3] state %i -> %i\n", prev_state, main_state);
+    debug_if(DBGMSG_L3, "[L3] State transition from %i to %i\n", prev_state,
+             main_state);
     prev_state = main_state;
-  }
-
-  // 메시지 수신이면 타입 분류 먼저 처리
-  if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
-    L3_parse_msg();
   }
 
   switch (main_state) {
     // WAIT_PAIR 기다리는 중
     case L3STATE_BROADCASTING:
+      // Event A. coordinator로부터 WAIT_PAIR 를 수신했을 때
+      if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
+        // 나중에 어떤거를 받았을때 coordinator id를 확인하는게 필요할 수 있음
+        // (지금은 필요 x) uint8_t srcId = L3_LLI_getSrcId();
+      }
+
       if (L3_event_checkEventFlag(L3_event_waitPairRcvd)) {
         // Event A: WAIT_PAIR 수신 → TXN 전송 + 타이머 시작 → WAIT_PRICE_REC
         L3_action_sendTxn();

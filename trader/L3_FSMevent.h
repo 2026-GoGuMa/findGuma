@@ -1,12 +1,12 @@
 ﻿typedef enum L3_event {
   L3_event_msgRcvd = 2,
   L3_event_timeout = 3,
-  L3_event_dataToSend    = 4,
-  L3_event_dataSendCnf   = 5,
-  L3_event_recfgSrcIdCnf = 6,
-  L3_event_waitPairRcvd = 7,
-  L3_event_recRcvd = 8,
-  L3_event_mchRcvd = 9,
+  L3_event_dataToSend = 4,     // 실질적 사용 x
+  L3_event_dataSendCnf = 5,    // 실질적 사용 x
+  L3_event_recfgSrcIdCnf = 6,  // 실질적 사용 x
+  // L3_event_waitPairRcvd = 7,
+  // L3_event_recRcvd = 8,
+  // L3_event_mchRcvd = 9,
   L3_event_userAccept = 10,
   L3_event_userReject = 11
 } L3_event_e;
