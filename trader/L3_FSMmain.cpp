@@ -41,7 +41,7 @@ extern Serial pc;
 // TXN 전송: coordinator 형식 [id, isSeller, goods, price] (signal 필드 없음)
 static void L3_action_sendTxn(void) {
   uint8_t size =
-      L3_msg_buildTxn(sdu, myId, coordId, seq_num++, isSeller, goods, price);
+      L3_msg_encodeTxn(sdu, myId, coordId, seq_num++, isSeller, goods, price);
   L3_LLI_dataReqFunc(sdu, size, coordId);
   debug_if(DBGMSG_L3, "[L3] TXN sent\n");
 }
@@ -71,40 +71,6 @@ static void L3_action_reset(uint8_t success) {
   rcvd_match_success = 0;
   L3_event_clearAllEventFlag();
   pc.printf("[Trader] Trade %s\n", success ? "succeeded!" : "failed.");
-}
-
-// --- 메시지 파싱 ---
-// L3_event_msgRcvd 발생 시 호출: PDU 타입 확인 → 세부 이벤트 세팅
-// REC는 coordinator가 가격·위치를 별도 전송하므로 FSM 현재 상태로 구분해 저장
-static void L3_parse_msg(void) {
-  uint8_t* dataPtr = L3_LLI_getMsgPtr();
-  uint8_t type = L3_msg_getPduType(dataPtr);
-
-  switch (type) {
-    case L3_MSG_TYPE_WAIT_PAIR:
-      L3_event_setEventFlag(L3_event_waitPairRcvd);
-      break;
-
-    case L3_MSG_TYPE_REC: {
-      uint16_t val = L3_msg_parseRec(dataPtr);  // 2바이트 uint16_t 한 값
-      if (main_state == L3STATE_WAIT_PRICE_REC) {
-        rcvd_avg_price = val;
-      } else {
-        rcvd_avg_loc = val;
-      }
-      L3_event_setEventFlag(L3_event_recRcvd);
-      break;
-    }
-
-    case L3_MSG_TYPE_MCH:
-      rcvd_match_success = L3_msg_parseMch(dataPtr);
-      L3_event_setEventFlag(L3_event_mchRcvd);
-      break;
-
-    default:
-      break;
-  }
-  L3_event_clearEventFlag(L3_event_msgRcvd);
 }
 
 // --- init / run ---
