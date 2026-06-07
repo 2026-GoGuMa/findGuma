@@ -25,7 +25,7 @@ static uint16_t seq_num = 0;
 
 // 사용자 입력 대기 플래그
 static uint8_t waiting_price_cnf = 0;
-static uint8_t waiting_loc_cnf   = 0;
+static uint8_t waiting_loc_cnf = 0;
 
 // coordinator로부터 수신한 값
 // REC는 가격·위치 각각 2바이트로 따로 전송되므로 변수를 분리 유지
@@ -50,22 +50,22 @@ static void L3_action_sendTxn(void) {
 static void L3_action_sendPriceCnf(uint8_t accept) {
   uint8_t size = L3_msg_buildCnf(sdu, myId, coordId, seq_num++, accept);
   L3_LLI_dataReqFunc(sdu, size, coordId);
-  debug_if(DBGMSG_L3, "[L3] price CNF sent (accept=%u), avg_price=%u\n",
-           accept, rcvd_avg_price);
+  debug_if(DBGMSG_L3, "[L3] price CNF sent (accept=%u), avg_price=%u\n", accept,
+           rcvd_avg_price);
 }
 
 // 위치 CNF 전송: 사용자 입력값(accept)을 그대로 전달
 static void L3_action_sendLocCnf(uint8_t accept) {
   uint8_t size = L3_msg_buildCnf(sdu, myId, coordId, seq_num++, accept);
   L3_LLI_dataReqFunc(sdu, size, coordId);
-  debug_if(DBGMSG_L3, "[L3] loc CNF sent (accept=%u), avg_loc=%u\n",
-           accept, rcvd_avg_loc);
+  debug_if(DBGMSG_L3, "[L3] loc CNF sent (accept=%u), avg_loc=%u\n", accept,
+           rcvd_avg_loc);
 }
 
 // 리셋: 수신 값 초기화 + 결과 출력 후 BROADCASTING으로 복귀 준비
 static void L3_action_reset(uint8_t success) {
   waiting_price_cnf = 0;
-  waiting_loc_cnf   = 0;
+  waiting_loc_cnf = 0;
   rcvd_avg_price = 0;
   rcvd_avg_loc = 0;
   rcvd_match_success = 0;
@@ -154,7 +154,8 @@ void L3_FSMrun(void) {
       if (!waiting_price_cnf && L3_event_checkEventFlag(L3_event_recRcvd)) {
         // Event B: 가격 REC 수신 → 타이머 stop + 사용자 입력 요청
         L3_timer_stopTimer();
-        pc.printf("[Trader] avg_price=%u. Accept? (1=yes / 0=no): ", rcvd_avg_price);
+        pc.printf("[Trader] avg_price=%u. Accept? (1=yes / 0=no): ",
+                  rcvd_avg_price);
         waiting_price_cnf = 1;
         L3_event_clearEventFlag(L3_event_recRcvd);
       }
@@ -191,7 +192,8 @@ void L3_FSMrun(void) {
       if (!waiting_loc_cnf && L3_event_checkEventFlag(L3_event_recRcvd)) {
         // Event B: 위치 REC 수신 → 타이머 stop + 사용자 입력 요청
         L3_timer_stopTimer();
-        pc.printf("[Trader] avg_loc=%u. Accept? (1=yes / 0=no): ", rcvd_avg_loc);
+        pc.printf("[Trader] avg_loc=%u. Accept? (1=yes / 0=no): ",
+                  rcvd_avg_loc);
         waiting_loc_cnf = 1;
         L3_event_clearEventFlag(L3_event_recRcvd);
       }
