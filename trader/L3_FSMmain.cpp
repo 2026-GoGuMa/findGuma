@@ -50,7 +50,7 @@ static void L3_action_sendTxn(void) {
 
 // 가격 CNF 전송: 사용자 입력값(accept)을 그대로 전달
 static void L3_action_sendPriceCnf(uint8_t accept) {
-  uint8_t size = L3_msg_buildCnf(sdu, myId, coordId, seq_num++, accept);
+  uint8_t size = L3_msg_encodeCnf(sdu, myId, coordId, seq_num++, accept);
   L3_LLI_dataReqFunc(sdu, size, coordId);
   debug_if(DBGMSG_L3, "[L3] price CNF sent (accept=%u), avg_price=%u\n", accept,
            rcvd_avg_price);
@@ -58,7 +58,7 @@ static void L3_action_sendPriceCnf(uint8_t accept) {
 
 // 위치 CNF 전송: 사용자 입력값(accept)을 그대로 전달
 static void L3_action_sendLocCnf(uint8_t accept) {
-  uint8_t size = L3_msg_buildCnf(sdu, myId, coordId, seq_num++, accept);
+  uint8_t size = L3_msg_encodeCnf(sdu, myId, coordId, seq_num++, accept);
   L3_LLI_dataReqFunc(sdu, size, coordId);
   debug_if(DBGMSG_L3, "[L3] loc CNF sent (accept=%u), avg_loc=%u\n", accept,
            rcvd_avg_loc);
@@ -107,9 +107,9 @@ void L3_FSMrun(void) {
         if (L3_msg_checkIfWaitPair(msg, size)) {
           debug_if(DBGMSG_L3, "[L3] wait pair received from coordinator\n");
           if (srcId == coordId) {
-            L3_action_sendTxn();    // TXN 전송
-            L3_timer_startTimer();  // 타이머 시작 (TXN 보내고 REC 기다리는
-                                    // 동안)
+            L3_action_sendTxn();  // TXN 전송
+            L3_timer_startTimer(
+                L3_PAIR_TIMEOUT);  // 타이머 시작 (TXN 보내고 REC 기다리는 동안)
             main_state = L3STATE_WAIT_PRICE_REC;  // 상태 전환
           }
         } else {
@@ -144,14 +144,16 @@ void L3_FSMrun(void) {
                 L3_PAIR_TIMEOUT);  // 사용자 입력 대기 타이머 시작
           }
         } else {
-          // coordinator 로부터 받은 메시지가 REC 타입이 아닐 경우
+          // coordinator 로부터 받은 메시지가 REC 타입이 아닐 경우 (WAIT_PAIR,
+          // MCH PDU 또는 알 수 없는 메시지가 온 경우)
           debug_if(DBGMSG_L3,
-                   "[L3] unknown PDU ignored in WAIT_PAIR_REC state\n");
+                   "[L3] unknown PDU ignored in WAIT_PRICE_REC state\n");
         }
         L3_event_clearEventFlag(
             L3_event_msgRcvd);  // 메시지 수신 이벤트 플래그 끄기
 
-      } else if (L3_event_checkEventFlag(L3_event_timeout)) {
+      } else if (!waiting_price_cnf &&
+                 L3_event_checkEventFlag(L3_event_timeout)) {
         // Event D. REC 안왔는데 timeout 난 경우
         L3_timer_stopTimer();  // 사용자 입력 대기 타이머 정지
         L3_action_reset(0);    // 거래 실패(0)로 상태 초기화
@@ -165,6 +167,7 @@ void L3_FSMrun(void) {
           waiting_price_cnf = 0;      // 사용자 대기 플래그 끄기
           L3_action_sendPriceCnf(1);  // coordinator에게 수락(1) CNF 전송
           L3_event_clearEventFlag(L3_event_userAccept);  // 이벤트 플래그 끄기
+          L3_timer_startTimer(L3_PAIR_TIMEOUT);  // 위치 REC가 안 올 경우 대비
           main_state = L3STATE_WAIT_LOC_REC;
 
         } else if (L3_event_checkEventFlag(L3_event_userReject)) {
@@ -184,65 +187,77 @@ void L3_FSMrun(void) {
       }
       break;
 
-    // 위치 평균 기다리는 중
     case L3STATE_WAIT_LOC_REC:
-      if (!waiting_loc_cnf && L3_event_checkEventFlag(L3_event_recRcvd)) {
-        // Event B: 위치 REC 수신 → 타이머 stop + 사용자 입력 요청
-        L3_timer_stopTimer();
-        pc.printf("[Trader] avg_loc=%u. Accept? (1=yes / 0=no): ",
-                  rcvd_avg_loc);
-        waiting_loc_cnf = 1;
-        L3_event_clearEventFlag(L3_event_recRcvd);
+      // Event B. REC 메시지 수신했을 때
+      if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
+        uint8_t srcId = L3_LLI_getSrcId();
+        uint8_t* msg = L3_LLI_getMsgPtr();
+        uint8_t size = L3_LLI_getSize();
+
+        // Coordinator가 보낸 REC 인지 확인
+        if (L3_msg_checkIfRec(msg, size)) {
+          debug_if(DBGMSG_L3, "[L3] Location REC received from coordinator");
+
+          // coordinator로 부터 REC가 오면 위치 추출하고 사용자 입력 대기 시작
+          if (srcId == coordId) {
+            L3_timer_stopTimer();                  // REC 대기 타이머 정지
+            rcvd_avg_loc = L3_msg_decodeRec(msg);  // 메시지에서 위치 추출
+            pc.printf("[L3][Trader] avg_loc=%u. Accept? (1=yes / 0=no): ",
+                      rcvd_avg_loc);
+            waiting_loc_cnf = 1;  // 사용자 입력 대기 중
+            L3_timer_startTimer(
+                L3_PAIR_TIMEOUT);  // 사용자 입력 대기 타이머 시작
+          }
+        } else if (L3_msg_checkIfMch(msg, size)) {
+          // Event C. MCH PDU가 온 경우
+          L3_timer_stopTimer();
+          L3_action_reset(0);
+          main_state = L3STATE_BROADCASTING;
+        } else {
+          // coordinator 로부터 받은 메시지가 REC 타입이 아닐 경우 (WAIT_PAIR
+          // 메시지나 알 수 없는 메시지가 온 경우)
+          debug_if(DBGMSG_L3,
+                   "[L3] unknown PDU ignored in WAIT_LOC_REC state\n");
+        }
+        L3_event_clearEventFlag(
+            L3_event_msgRcvd);  // 메시지 수신 이벤트 플래그 끄기
+
+      } else if (!waiting_loc_cnf &&
+                 L3_event_checkEventFlag(L3_event_timeout)) {
+        // Event D. REC 안왔는데 timeout 난 경우
+        L3_timer_stopTimer();  // 사용자 입력 대기 타이머 정지
+        L3_action_reset(0);    // 거래 실패(0)로 상태 초기화
+        main_state = L3STATE_BROADCASTING;
       }
+
+      // Event B(action 2). REC 메시지 수신 후, 제안에 대한 수락/거절 응답 송신
       if (waiting_loc_cnf) {
         if (L3_event_checkEventFlag(L3_event_userAccept)) {
-          waiting_loc_cnf = 0;
-          L3_action_sendLocCnf(1);
+          // 사용자가 위치를 수락한 경우
+          waiting_loc_cnf = 0;      // 사용자 대기 플래그 끄기
+          L3_action_sendLocCnf(1);  // coordinator에게 수락(1) CNF 전송
+          L3_event_clearEventFlag(L3_event_userAccept);  // 이벤트 플래그 끄기
           L3_timer_startTimer(L3_MCH_TIMEOUT);
-          L3_event_clearEventFlag(L3_event_userAccept);
           main_state = L3STATE_WAIT_LOC_MCH;
+
         } else if (L3_event_checkEventFlag(L3_event_userReject)) {
+          // 사용자가 위치를 거절한 경우
           waiting_loc_cnf = 0;
           L3_action_sendLocCnf(0);
           L3_action_reset(0);
           L3_event_clearEventFlag(L3_event_userReject);
           main_state = L3STATE_BROADCASTING;
+
         } else if (L3_event_checkEventFlag(L3_event_timeout)) {
+          // 사용자가 입력 대기 시간 안에 수락/거절을 누르지 않은 경우
           L3_timer_stopTimer();
           L3_action_reset(0);
           main_state = L3STATE_BROADCASTING;
         }
-      } else if (L3_event_checkEventFlag(L3_event_mchRcvd) ||
-                 L3_event_checkEventFlag(L3_event_timeout)) {
-        // Event C or D: 실패 reset → BROADCASTING
-        L3_timer_stopTimer();
-        L3_action_reset(0);
-        main_state = L3STATE_BROADCASTING;
       }
       break;
 
-    // 매칭 결과 기다리는 중
     case L3STATE_WAIT_LOC_MCH:
-      if (L3_event_checkEventFlag(L3_event_mchRcvd)) {
-        // Event C: MCH 수신 → 성공/실패 출력 → BROADCASTING
-        L3_timer_stopTimer();
-        L3_action_reset(rcvd_match_success);
-        main_state = L3STATE_BROADCASTING;
-      } else if (L3_event_checkEventFlag(L3_event_waitPairRcvd) ||
-                 L3_event_checkEventFlag(L3_event_recRcvd)) {
-        // Event A, B: 예상치 못한 패킷 → 실패 reset → BROADCASTING
-        L3_timer_stopTimer();
-        L3_action_reset(0);
-        main_state = L3STATE_BROADCASTING;
-      } else if (L3_event_checkEventFlag(L3_event_timeout)) {
-        // Event D: MCH 타임아웃 → 실패 reset → BROADCASTING
-        L3_timer_stopTimer();
-        L3_action_reset(0);
-        main_state = L3STATE_BROADCASTING;
-      }
-      break;
-
-    default:
-      break;
+      //
   }
 }
