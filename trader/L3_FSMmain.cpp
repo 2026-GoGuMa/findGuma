@@ -105,13 +105,16 @@ void L3_FSMrun(void) {
         uint8_t size = L3_LLI_getSize();    // 메시지 길이
 
         if (L3_msg_checkIfWaitPair(msg, size)) {
-          debug_if(DBGMSG_L3, "[L3] wait pair received from %i\n", srcId);
+          debug_if(DBGMSG_L3, "[L3] wait pair received from coordinator\n");
           if (srcId == coordId) {
-            L3_action_sendTxn();                  // TXN 전송
-            L3_timer_startTimer();                // 타이머 시작
+            L3_action_sendTxn();    // TXN 전송
+            L3_timer_startTimer();  // 타이머 시작 (TXN 보내고 REC 기다리는
+                                    // 동안)
             main_state = L3STATE_WAIT_PRICE_REC;  // 상태 전환
           }
         } else {
+          // WAIT_PAIR 메시지가 아닌 TXN, CNF 메시지나 알 수 없는 메시지가 오는
+          // 경우
           debug_if(DBGMSG_L3,
                    "[L3] unknown PDU ignored in BROADCASTING state\n");
         }
@@ -119,41 +122,65 @@ void L3_FSMrun(void) {
       }
       break;
 
-    // 가격 평균 기다리는 중
     case L3STATE_WAIT_PRICE_REC:
-      if (!waiting_price_cnf && L3_event_checkEventFlag(L3_event_recRcvd)) {
-        // Event B: 가격 REC 수신 → 타이머 stop + 사용자 입력 요청
-        L3_timer_stopTimer();
-        pc.printf("[Trader] avg_price=%u. Accept? (1=yes / 0=no): ",
-                  rcvd_avg_price);
-        waiting_price_cnf = 1;
-        L3_event_clearEventFlag(L3_event_recRcvd);
+      // Event B. REC 메시지 수신했을 때
+      if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
+        uint8_t srcId = L3_LLI_getSrcId();
+        uint8_t* msg = L3_LLI_getMsgPtr();
+        uint8_t size = L3_LLI_getSize();
+
+        // Coordinator 가 보낸 REC 인지 확인
+        if (L3_msg_checkIfRec(msg, size)) {
+          debug_if(DBGMSG_L3, "[L3] Price REC received from coordinator");
+
+          // coordinator로 부터 REC가 오면 가격 추출하고 사용자 입력 대기 시작
+          if (srcId == coordId) {
+            L3_timer_stopTimer();                    // REC 대기 타이머 정지
+            rcvd_avg_price = L3_msg_decodeRec(msg);  // 메시지에서 가격 추출
+            pc.printf("[L3][Trader] avg_price=%u. Accept? (1=yes / 0=no): ",
+                      rcvd_avg_price);
+            waiting_price_cnf = 1;  // 사용자 입력 대기 중
+            L3_timer_startTimer(
+                L3_PAIR_TIMEOUT);  // 사용자 입력 대기 타이머 시작
+          }
+        } else {
+          // coordinator 로부터 받은 메시지가 REC 타입이 아닐 경우
+          debug_if(DBGMSG_L3,
+                   "[L3] unknown PDU ignored in WAIT_PAIR_REC state\n");
+        }
+        L3_event_clearEventFlag(
+            L3_event_msgRcvd);  // 메시지 수신 이벤트 플래그 끄기
+
+      } else if (L3_event_checkEventFlag(L3_event_timeout)) {
+        // Event D. REC 안왔는데 timeout 난 경우
+        L3_timer_stopTimer();  // 사용자 입력 대기 타이머 정지
+        L3_action_reset(0);    // 거래 실패(0)로 상태 초기화
+        main_state = L3STATE_BROADCASTING;
       }
+
+      // Event B(action 2). REC 메시지 수신 후, 제안에 대한 수락/거절 응답 송신
       if (waiting_price_cnf) {
         if (L3_event_checkEventFlag(L3_event_userAccept)) {
-          waiting_price_cnf = 0;
-          L3_action_sendPriceCnf(1);
-          L3_timer_startTimer(L3_PAIR_TIMEOUT);
-          L3_event_clearEventFlag(L3_event_userAccept);
+          // 사용자가 가격을 수락한 경우
+          waiting_price_cnf = 0;      // 사용자 대기 플래그 끄기
+          L3_action_sendPriceCnf(1);  // coordinator에게 수락(1) CNF 전송
+          L3_event_clearEventFlag(L3_event_userAccept);  // 이벤트 플래그 끄기
           main_state = L3STATE_WAIT_LOC_REC;
+
         } else if (L3_event_checkEventFlag(L3_event_userReject)) {
+          // 사용자가 가격을 거절한 경우
           waiting_price_cnf = 0;
           L3_action_sendPriceCnf(0);
           L3_action_reset(0);
           L3_event_clearEventFlag(L3_event_userReject);
           main_state = L3STATE_BROADCASTING;
+
         } else if (L3_event_checkEventFlag(L3_event_timeout)) {
-          // 입력 없이 타임아웃 → 실패 처리
+          // 사용자가 입력 대기 시간 안에 수락/거절을 누르지 않은 경우
           L3_timer_stopTimer();
           L3_action_reset(0);
           main_state = L3STATE_BROADCASTING;
         }
-      } else if (L3_event_checkEventFlag(L3_event_mchRcvd) ||
-                 L3_event_checkEventFlag(L3_event_timeout)) {
-        // Event C (match_fail) or D (timeout): 실패 reset → BROADCASTING
-        L3_timer_stopTimer();
-        L3_action_reset(0);
-        main_state = L3STATE_BROADCASTING;
       }
       break;
 
