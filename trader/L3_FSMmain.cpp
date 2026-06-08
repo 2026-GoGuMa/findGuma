@@ -38,10 +38,12 @@ extern Serial pc;
 
 // --- action 함수 ---
 
-// TXN 전송: coordinator 형식 [id, isSeller, goods, price] (signal 필드 없음)
+// TXN 메시지를 만들어 coordinator에게 전송
 static void L3_action_sendTxn(void) {
+  // TXN 메시지를 sdu 버퍼에 조립
   uint8_t size =
       L3_msg_encodeTxn(sdu, myId, coordId, seq_num++, isSeller, goods, price);
+  // 조립된 메시지를 LL 레이어를 통해 coordId 에게 전송
   L3_LLI_dataReqFunc(sdu, size, coordId);
   debug_if(DBGMSG_L3, "[L3] TXN sent\n");
 }
@@ -95,26 +97,25 @@ void L3_FSMrun(void) {
   }
 
   switch (main_state) {
-    // WAIT_PAIR 기다리는 중
     case L3STATE_BROADCASTING:
       // Event A. coordinator로부터 WAIT_PAIR 를 수신했을 때
       if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
-        // 나중에 어떤거를 받았을때 coordinator id를 확인하는게 필요할 수 있음
-        // (지금은 필요 x) uint8_t srcId = L3_LLI_getSrcId();
-      }
+        uint8_t srcId = L3_LLI_getSrcId();  // 메시지 보낸 노드 ID
+        uint8_t* msg = L3_LLI_getMsgPtr();  // 메시지 내용
+        uint8_t size = L3_LLI_getSize();    // 메시지 길이
 
-      if (L3_event_checkEventFlag(L3_event_waitPairRcvd)) {
-        // Event A: WAIT_PAIR 수신 → TXN 전송 + 타이머 시작 → WAIT_PRICE_REC
-        L3_action_sendTxn();
-        L3_timer_startTimer(L3_PAIR_TIMEOUT);
-        L3_event_clearEventFlag(L3_event_waitPairRcvd);
-        main_state = L3STATE_WAIT_PRICE_REC;
-      } else if (L3_event_checkEventFlag(L3_event_recRcvd) ||
-                 L3_event_checkEventFlag(L3_event_mchRcvd)) {
-        // Event B, C: 이전 라운드 잔여 패킷 → TXN 재전송, 상태 유지
-        L3_action_sendTxn();
-        L3_event_clearEventFlag(L3_event_recRcvd);
-        L3_event_clearEventFlag(L3_event_mchRcvd);
+        if (L3_msg_checkIfWaitPair(msg, size)) {
+          debug_if(DBGMSG_L3, "[L3] wait pair received from %i\n", srcId);
+          if (srcId == coordId) {
+            L3_action_sendTxn();                  // TXN 전송
+            L3_timer_startTimer();                // 타이머 시작
+            main_state = L3STATE_WAIT_PRICE_REC;  // 상태 전환
+          }
+        } else {
+          debug_if(DBGMSG_L3,
+                   "[L3] unknown PDU ignored in BROADCASTING state\n");
+        }
+        L3_event_clearEventFlag(L3_event_msgRcvd);
       }
       break;
 
