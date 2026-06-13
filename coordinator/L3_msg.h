@@ -33,9 +33,10 @@
   0  // 2 bytes (price인 경우 0~6만까지, loc인 경우 우편번호로 010**~636**까지
      // 표현 가능)
 
-// L3 Message Size
+// L3 Message Size (페이로드 크기)
 #define L3_TXN_PAYLOAD_SIZE 5
 
+// pdu 전체 = 헤더 + 페이로드 크기
 #define L3_MSG_MCH_SIZE (L3_MSG_OFFSET_PAYLOAD + 1)
 #define L3_MSG_REC_SIZE (L3_MSG_OFFSET_PAYLOAD + 2)
 #define L3_MSG_WAIT_PAIR_SIZE (L3_MSG_OFFSET_PAYLOAD + 0)
@@ -44,6 +45,7 @@
 
 #define L3_MSG_MAX_SEQNUM 1024
 
+// TXN 메시지의 내용을 담는 구조체
 typedef struct L3_txnInfo {
   uint8_t id;
   uint8_t isSeller;
@@ -52,19 +54,25 @@ typedef struct L3_txnInfo {
   int16_t signal;
 } L3_txnInfo_t;
 
+// ================= 데이터 인코딩 함수들 =================
 static uint16_t L3_msg_readUint16(uint8_t* dataPtr);
 static void L3_msg_writeUint16(uint8_t* dataPtr, uint16_t data);
 
+// ================= 수신 메시지의 헤더 및 페이로드 참조 함수들
+// =================
 int L3_msg_checkMsgType(uint8_t* msg);
-uint8_t L3_msg_encodeMsg(uint8_t* msg, uint8_t type, uint8_t seq, uint8_t srcId,
-                         uint8_t destId, uint8_t* data, int len);
 uint8_t L3_msg_getSeq(uint8_t* msg);
-uint8_t* L3_msg_getPayload(uint8_t* msg);
 uint8_t L3_msg_getSrcId(uint8_t* msg);
 uint8_t L3_msg_getDstId(uint8_t* msg);
+uint8_t* L3_msg_getPayload(uint8_t* msg);
 
+// ================= 수신 MSG 타입 체크 함수들 =================
 int L3_msg_checkIfTxn(uint8_t* msg, uint8_t size);
 int L3_msg_checkIfCnf(uint8_t* msg, uint8_t size);
+
+// ================= 송신 MSG 생성 함수들 =================
+uint8_t L3_msg_encodeMsg(uint8_t* msg, uint8_t type, uint8_t seq, uint8_t srcId,
+                         uint8_t destId, uint8_t* data, int len);
 uint8_t L3_msg_encodeWaitPair(uint8_t* msg, uint8_t seq, uint8_t srcId,
                               uint8_t dstId);
 uint8_t L3_msg_encodeMch(uint8_t* msg, uint8_t seq, uint8_t srcId,
@@ -72,5 +80,6 @@ uint8_t L3_msg_encodeMch(uint8_t* msg, uint8_t seq, uint8_t srcId,
 uint8_t L3_msg_encodeRec(uint8_t* msg, uint8_t seq, uint8_t srcId,
                          uint8_t dstId, uint16_t info);
 
+// ================= 수신 MSG 해석 함수 =================
 int L3_msg_decodeTxn(uint8_t* msg, uint8_t size, L3_txnInfo_t* txnInfo,
                      int16_t rssi);
