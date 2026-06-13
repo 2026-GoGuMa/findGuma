@@ -1,15 +1,3 @@
-/*
-  startTimer(5)
-      ↓
-    5초 경과
-      ↓
-  timeoutHandler() 자동 호출  ←── mbed 인터럽트
-      ↓
-  L3_event_timeout 플래그 세팅
-      ↓
-  FSM 루프에서 감지 → 실패 처리
-*/
-
 #include "L3_FSMevent.h"
 #include "mbed.h"
 #include "protocol_parameters.h"

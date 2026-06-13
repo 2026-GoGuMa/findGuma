@@ -31,7 +31,6 @@ static uint8_t waiting_loc_cnf = 0;
 // REC는 가격·위치 각각 2바이트로 따로 전송되므로 변수를 분리 유지
 static uint16_t rcvd_avg_price = 0;
 static uint16_t rcvd_avg_loc = 0;
-static uint8_t rcvd_match_success = 0;
 
 static uint8_t sdu[L3_MAXDATASIZE];
 extern Serial pc;
@@ -70,7 +69,6 @@ static void L3_action_reset(uint8_t success) {
   waiting_loc_cnf = 0;
   rcvd_avg_price = 0;
   rcvd_avg_loc = 0;
-  rcvd_match_success = 0;
   L3_event_clearAllEventFlag();
   pc.printf("[Trader] Trade %s\n", success ? "succeeded!" : "failed.");
 }
@@ -210,9 +208,11 @@ void L3_FSMrun(void) {
           }
         } else if (L3_msg_checkIfMch(msg, size)) {
           // Event C. MCH PDU가 온 경우
-          L3_timer_stopTimer();
-          L3_action_reset(0);
-          main_state = L3STATE_BROADCASTING;
+          if (srcId == coordId) {
+            L3_timer_stopTimer();
+            L3_action_reset(0);
+            main_state = L3STATE_BROADCASTING;
+          }
         } else {
           // coordinator 로부터 받은 메시지가 REC 타입이 아닐 경우 (WAIT_PAIR
           // 메시지나 알 수 없는 메시지가 온 경우)
@@ -258,6 +258,35 @@ void L3_FSMrun(void) {
       break;
 
     case L3STATE_WAIT_LOC_MCH:
-      //
+      // Event C. MCH 수신했을 때
+      if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
+        uint8_t srcId = L3_LLI_getSrcId();
+        uint8_t* msg = L3_LLI_getMsgPtr();
+        uint8_t size = L3_LLI_getSize();
+
+        if (L3_msg_checkIfMch(msg, size)) {
+          debug_if(DBGMSG_L3, "[L3] MCH received from %i\n", srcId);
+          // coordinator가 보낸 MCH 인지 확인
+          if (srcId == coordId) {
+            L3_timer_stopTimer();                     // MCH 대기 타이머 정지
+            uint8_t success = L3_msg_decodeMch(msg);  // 매칭 성공 여부 추출
+            L3_action_reset(success);
+            main_state = L3STATE_BROADCASTING;
+          }
+        } else {
+          // MCH 타입이 아닌 메시지가 온 경우
+          debug_if(DBGMSG_L3,
+                   "[L3] unknown PDU ignored in WAIT_LOC_MCH state\n");
+        }
+        L3_event_clearEventFlag(
+            L3_event_msgRcvd);  // 메시지 수신 이벤트 플래그 끄기
+
+        // Event D. MCH 안왔는데 timeout 난 경우
+      } else if (L3_event_checkEventFlag(L3_event_timeout)) {
+        L3_timer_stopTimer();  // MCH 대기 타이머 정지
+        L3_action_reset(0);
+        main_state = L3STATE_BROADCASTING;
+      }
+      break;
   }
 }
