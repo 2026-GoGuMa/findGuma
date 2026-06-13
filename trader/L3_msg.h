@@ -76,7 +76,7 @@ int L3_msg_checkIfWaitPair(uint8_t* msg, uint8_t size);
 uint8_t L3_msg_encodeMsg(uint8_t* msg, uint8_t type, uint8_t seq, uint8_t srcId,
                          uint8_t destId, uint8_t* data, int len);
 uint8_t L3_msg_encodeTxn(uint8_t* buf, uint8_t myId, uint8_t coordId,
-                         uint16_t seq, uint8_t isSeller, uint8_t goods,
+                         uint8_t seq, uint8_t isSeller, uint8_t goods,
                          uint16_t price);
 uint8_t L3_msg_encodeCnf(uint8_t* msg, uint8_t myId, uint8_t coordId,
                          uint8_t seq, uint8_t accept);
