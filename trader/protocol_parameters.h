@@ -10,8 +10,8 @@
 #define L2_ARQ_MINWAITTIME 2         // ARQ 최소 대기 시간(초)
 #define L1_FREQCHANNEL 1             // 주파수 채널(x 1MHz)
 
-#define L3_PAIR_TIMEOUT 5  // 페어링 응답 대기 타임아웃(초)
-#define L3_MCH_TIMEOUT 5   // 매칭 결과 대기 타임아웃(초)
+#define L3_PAIR_TIMEOUT 30  // 페어링 응답 대기 타임아웃(초)
+#define L3_MCH_TIMEOUT 30   // 매칭 결과 대기 타임아웃(초)
 
 #define L3_COORDINATOR_ID 0  // 코디네이터 노드 ID (고정값)
 #define L3_MIN_RSSI -60      // 임의 설정

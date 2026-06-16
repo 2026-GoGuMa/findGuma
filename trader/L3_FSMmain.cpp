@@ -103,13 +103,13 @@ void L3_FSMrun(void) {
         uint8_t size = L3_LLI_getSize();    // 메시지 길이
 
         if (L3_msg_checkIfWaitPair(msg, size)) {
-          debug_if(DBGMSG_L3, "[L3] wait pair received from coordinator\n");
+          pc.printf("[L3] Waiting for pair. . . . . .\n");
           if (srcId == coordId) {
-            L3_action_sendTxn();  // TXN 전송
             L3_timer_startTimer(
                 L3_PAIR_TIMEOUT);  // 타이머 시작 (TXN 보내고 REC 기다리는 동안)
             main_state = L3STATE_WAIT_PRICE_REC;  // 상태 전환
           }
+          debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
         } else {
           // WAIT_PAIR 메시지가 아닌 TXN, CNF 메시지나 알 수 없는 메시지가 오는
           // 경우
@@ -118,6 +118,7 @@ void L3_FSMrun(void) {
         }
         L3_event_clearEventFlag(L3_event_msgRcvd);
       }
+      L3_action_sendTxn();
       break;
 
     case L3STATE_WAIT_PRICE_REC:
@@ -138,9 +139,8 @@ void L3_FSMrun(void) {
             pc.printf("[L3][Trader] avg_price=%u. Accept? (1=yes / 0=no): ",
                       rcvd_avg_price);
             waiting_price_cnf = 1;  // 사용자 입력 대기 중
-            L3_timer_startTimer(
-                L3_PAIR_TIMEOUT);  // 사용자 입력 대기 타이머 시작
           }
+          debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
         } else {
           // coordinator 로부터 받은 메시지가 REC 타입이 아닐 경우 (WAIT_PAIR,
           // MCH PDU 또는 알 수 없는 메시지가 온 경우)
@@ -149,13 +149,6 @@ void L3_FSMrun(void) {
         }
         L3_event_clearEventFlag(
             L3_event_msgRcvd);  // 메시지 수신 이벤트 플래그 끄기
-
-      } else if (!waiting_price_cnf &&
-                 L3_event_checkEventFlag(L3_event_timeout)) {
-        // Event D. REC 안왔는데 timeout 난 경우
-        L3_timer_stopTimer();  // 사용자 입력 대기 타이머 정지
-        L3_action_reset(0);    // 거래 실패(0)로 상태 초기화
-        main_state = L3STATE_BROADCASTING;
       }
 
       // Event B(action 2). REC 메시지 수신 후, 제안에 대한 수락/거절 응답 송신
@@ -175,13 +168,15 @@ void L3_FSMrun(void) {
           L3_action_reset(0);
           L3_event_clearEventFlag(L3_event_userReject);
           main_state = L3STATE_BROADCASTING;
-
-        } else if (L3_event_checkEventFlag(L3_event_timeout)) {
-          // 사용자가 입력 대기 시간 안에 수락/거절을 누르지 않은 경우
-          L3_timer_stopTimer();
-          L3_action_reset(0);
-          main_state = L3STATE_BROADCASTING;
         }
+      }
+      // D. timeout 난 경우
+      if (L3_event_checkEventFlag(L3_event_timeout)) {
+        pc.printf("No match from coordinator %i... Waiting for pair again",
+                  coordId);
+        L3_timer_stopTimer();
+        L3_action_reset(0);
+        main_state = L3STATE_BROADCASTING;
       }
       break;
 
@@ -206,9 +201,13 @@ void L3_FSMrun(void) {
             L3_timer_startTimer(
                 L3_PAIR_TIMEOUT);  // 사용자 입력 대기 타이머 시작
           }
+          debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
         } else if (L3_msg_checkIfMch(msg, size)) {
           // Event C. MCH PDU가 온 경우
           if (srcId == coordId) {
+            pc.printf(
+                "[L3][Trader] Price negotiation failed! Matching fail, "
+                "broadcasting again. . . . . . ");
             L3_timer_stopTimer();
             L3_action_reset(0);
             main_state = L3STATE_BROADCASTING;
@@ -221,13 +220,6 @@ void L3_FSMrun(void) {
         }
         L3_event_clearEventFlag(
             L3_event_msgRcvd);  // 메시지 수신 이벤트 플래그 끄기
-
-      } else if (!waiting_loc_cnf &&
-                 L3_event_checkEventFlag(L3_event_timeout)) {
-        // Event D. REC 안왔는데 timeout 난 경우
-        L3_timer_stopTimer();  // 사용자 입력 대기 타이머 정지
-        L3_action_reset(0);    // 거래 실패(0)로 상태 초기화
-        main_state = L3STATE_BROADCASTING;
       }
 
       // Event B(action 2). REC 메시지 수신 후, 제안에 대한 수락/거절 응답 송신
@@ -247,13 +239,15 @@ void L3_FSMrun(void) {
           L3_action_reset(0);
           L3_event_clearEventFlag(L3_event_userReject);
           main_state = L3STATE_BROADCASTING;
-
-        } else if (L3_event_checkEventFlag(L3_event_timeout)) {
-          // 사용자가 입력 대기 시간 안에 수락/거절을 누르지 않은 경우
-          L3_timer_stopTimer();
-          L3_action_reset(0);
-          main_state = L3STATE_BROADCASTING;
         }
+      }
+      // D. timeout 난 경우
+      if (L3_event_checkEventFlag(L3_event_timeout)) {
+        pc.printf("No match from coordinator %i... Waiting for pair again",
+                  coordId);
+        L3_timer_stopTimer();
+        L3_action_reset(0);
+        main_state = L3STATE_BROADCASTING;
       }
       break;
 
@@ -273,6 +267,7 @@ void L3_FSMrun(void) {
             L3_action_reset(success);
             main_state = L3STATE_BROADCASTING;
           }
+          debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
         } else {
           // MCH 타입이 아닌 메시지가 온 경우
           debug_if(DBGMSG_L3,
@@ -280,9 +275,9 @@ void L3_FSMrun(void) {
         }
         L3_event_clearEventFlag(
             L3_event_msgRcvd);  // 메시지 수신 이벤트 플래그 끄기
-
-        // Event D. MCH 안왔는데 timeout 난 경우
-      } else if (L3_event_checkEventFlag(L3_event_timeout)) {
+      }
+      // Event D. timeout 난 경우
+      if (L3_event_checkEventFlag(L3_event_timeout)) {
         L3_timer_stopTimer();  // MCH 대기 타이머 정지
         L3_action_reset(0);
         main_state = L3STATE_BROADCASTING;
