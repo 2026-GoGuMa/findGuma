@@ -36,6 +36,14 @@ extern Serial pc;
 
 // --- action 함수 ---
 
+// 시퀀스 번호 생성 함수
+static uint8_t L3_getNextSeqNum(void) {
+  uint8_t seqNum = seq_num;
+  seq_num = (seq_num + 1) % L3_MSG_MAX_SEQNUM;
+  if (seq_num == 0) seq_num = 1;
+  return seqNum;
+}
+
 // action 1. TXN 메시지를 만들어 coordinator에게 전송
 static void L3_action_sendTxn(void) {
   uint8_t sdu[L3_MSG_TXN_SIZE];
@@ -75,14 +83,6 @@ static void L3_action_reset(uint8_t success) {
   rcvd_avg_loc = 0;
   L3_event_clearAllEventFlag();
   pc.printf("[Trader] Trade %s\n", success ? "succeeded!" : "failed.");
-}
-
-// 시퀀스 번호 생성 함수
-static uint8_t L3_getNextSeqNum(void) {
-  uint8_t seqNum = seq_num;
-  seq_num = (seq_num + 1) % L3_MSG_MAX_SEQNUM;
-  if (seq_num == 0) seq_num = 1;
-  return seqNum;
 }
 
 // --- init / run ---
