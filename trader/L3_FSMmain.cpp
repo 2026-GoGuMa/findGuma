@@ -32,13 +32,13 @@ static uint8_t waiting_loc_cnf = 0;
 static uint16_t rcvd_avg_price = 0;
 static uint16_t rcvd_avg_loc = 0;
 
-static uint8_t sdu[L3_MAXDATASIZE];
 extern Serial pc;
 
 // --- action 함수 ---
 
 // action 1. TXN 메시지를 만들어 coordinator에게 전송
 static void L3_action_sendTxn(void) {
+  uint8_t sdu[L3_MSG_TXN_SIZE];
   // TXN 메시지를 sdu 버퍼에 조립
   uint8_t size = L3_msg_encodeTxn(sdu, myId, coordId, L3_getNextSeqNum(),
                                   isSeller, goods, price);
@@ -49,6 +49,7 @@ static void L3_action_sendTxn(void) {
 
 // action 2-1. 가격 CNF 전송: 사용자 입력값(accept)을 그대로 전달
 static void L3_action_sendPriceCnf(uint8_t accept) {
+  uint8_t sdu[L3_MSG_CNF_SIZE];
   uint8_t size =
       L3_msg_encodeCnf(sdu, myId, coordId, L3_getNextSeqNum(), accept);
   L3_LLI_dataReqFunc(sdu, size, coordId);
@@ -58,6 +59,7 @@ static void L3_action_sendPriceCnf(uint8_t accept) {
 
 // action 2-2. 위치 CNF 전송: 사용자 입력값(accept)을 그대로 전달
 static void L3_action_sendLocCnf(uint8_t accept) {
+  uint8_t sdu[L3_MSG_CNF_SIZE];
   uint8_t size =
       L3_msg_encodeCnf(sdu, myId, coordId, L3_getNextSeqNum(), accept);
   L3_LLI_dataReqFunc(sdu, size, coordId);
