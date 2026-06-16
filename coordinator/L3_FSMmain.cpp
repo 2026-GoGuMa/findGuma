@@ -203,6 +203,7 @@ void L3_FSMrun(void) {
                    "IDLE\n");
           L3_resetAll();
           main_state = L3STATE_IDLE;
+          break;
         }
 
         // 하위 계층에서 새로운 PDU가 도착했으므로, 내용을 읽어서
@@ -253,21 +254,28 @@ void L3_FSMrun(void) {
               }
               // c4, c5 만족 시
               else {
+                matchingTxn = txnInfo;
+
+                // action 8: 두 번째로 매칭된 trader에게 WAIT_PAIR 전송
+                // (matchingTxn이 BROADCASTING → WAIT_PRICE_REC로 전환할 시간
+                // 확보)
+                L3_sendWaitPair(matchingTxn.id);
+                wait(1);
+
                 // action 3: Send REC
-                avg_price = (pendingTxn.price + txnInfo.price) / 2;
+                avg_price = (pendingTxn.price + matchingTxn.price) / 2;
                 L3_sendRecPrice(pendingTxn.id, avg_price);
-                L3_sendRecPrice(txnInfo.id, avg_price);
+                L3_sendRecPrice(matchingTxn.id, avg_price);
 
                 debug_if(
                     DBGMSG_L3,
                     "[L3] REC sent to both traders (%i, %i) with avg price %i, "
                     "waiting for CNF\n",
-                    pendingTxn.id, txnInfo.id, avg_price);
+                    pendingTxn.id, matchingTxn.id, avg_price);
 
                 // action 6 & 7: 타이머 재시작 (앞서 stop했으므로 다시 start)
                 L3_timer_startTimer();
 
-                matchingTxn = txnInfo;
                 main_state = L3STATE_WAIT_PRICE_CNF;
               }
             }
