@@ -2,8 +2,8 @@
 #define DBGMSG_L3 0  // debug print control
 
 #define L3_MAXDATASIZE 1024
-#define L3_MAXWAITTIME 5
-#define L3_MINWAITTIME 2
+#define L3_MAXWAITTIME 30
+#define L3_MINWAITTIME 10
 
 #define L2_ARQ_MAXRETRANSMISSION 10
 #define L2_ARQ_MAXWAITTIME 5
