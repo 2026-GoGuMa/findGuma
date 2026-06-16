@@ -37,33 +37,35 @@ extern Serial pc;
 
 // --- action 함수 ---
 
-// TXN 메시지를 만들어 coordinator에게 전송
+// action 1. TXN 메시지를 만들어 coordinator에게 전송
 static void L3_action_sendTxn(void) {
   // TXN 메시지를 sdu 버퍼에 조립
-  uint8_t size =
-      L3_msg_encodeTxn(sdu, myId, coordId, seq_num++, isSeller, goods, price);
+  uint8_t size = L3_msg_encodeTxn(sdu, myId, coordId, L3_getNextSeqNum(),
+                                  isSeller, goods, price);
   // 조립된 메시지를 LL 레이어를 통해 coordId 에게 전송
   L3_LLI_dataReqFunc(sdu, size, coordId);
   debug_if(DBGMSG_L3, "[L3] TXN sent\n");
 }
 
-// 가격 CNF 전송: 사용자 입력값(accept)을 그대로 전달
+// action 2-1. 가격 CNF 전송: 사용자 입력값(accept)을 그대로 전달
 static void L3_action_sendPriceCnf(uint8_t accept) {
-  uint8_t size = L3_msg_encodeCnf(sdu, myId, coordId, seq_num++, accept);
+  uint8_t size =
+      L3_msg_encodeCnf(sdu, myId, coordId, L3_getNextSeqNum(), accept);
   L3_LLI_dataReqFunc(sdu, size, coordId);
   debug_if(DBGMSG_L3, "[L3] price CNF sent (accept=%u), avg_price=%u\n", accept,
            rcvd_avg_price);
 }
 
-// 위치 CNF 전송: 사용자 입력값(accept)을 그대로 전달
+// action 2-2. 위치 CNF 전송: 사용자 입력값(accept)을 그대로 전달
 static void L3_action_sendLocCnf(uint8_t accept) {
-  uint8_t size = L3_msg_encodeCnf(sdu, myId, coordId, seq_num++, accept);
+  uint8_t size =
+      L3_msg_encodeCnf(sdu, myId, coordId, L3_getNextSeqNum(), accept);
   L3_LLI_dataReqFunc(sdu, size, coordId);
   debug_if(DBGMSG_L3, "[L3] loc CNF sent (accept=%u), avg_loc=%u\n", accept,
            rcvd_avg_loc);
 }
 
-// 리셋: 수신 값 초기화 + 결과 출력 후 BROADCASTING으로 복귀 준비
+// action 5. 리셋: 수신 값 초기화 + 결과 출력 후 BROADCASTING으로 복귀 준비
 static void L3_action_reset(uint8_t success) {
   waiting_price_cnf = 0;
   waiting_loc_cnf = 0;
@@ -71,6 +73,14 @@ static void L3_action_reset(uint8_t success) {
   rcvd_avg_loc = 0;
   L3_event_clearAllEventFlag();
   pc.printf("[Trader] Trade %s\n", success ? "succeeded!" : "failed.");
+}
+
+// 시퀀스 번호 생성 함수
+static uint8_t L3_getNextSeqNum(void) {
+  uint8_t seqNum = seq_num;
+  seq_num = (seq_num + 1) % L3_MSG_MAX_SEQNUM;
+  if (seq_num == 0) seq_num = 1;
+  return seqNum;
 }
 
 // --- init / run ---
@@ -198,8 +208,6 @@ void L3_FSMrun(void) {
             pc.printf("[L3][Trader] avg_loc=%u. Accept? (1=yes / 0=no): ",
                       rcvd_avg_loc);
             waiting_loc_cnf = 1;  // 사용자 입력 대기 중
-            L3_timer_startTimer(
-                L3_PAIR_TIMEOUT);  // 사용자 입력 대기 타이머 시작
           }
           debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
         } else if (L3_msg_checkIfMch(msg, size)) {
