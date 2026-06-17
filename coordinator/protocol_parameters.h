@@ -17,3 +17,5 @@
 #define AVG_LOC 4312  // 04312, 우편번호는 636***까지 표현 가능
 
 #define MAX_TRADERID 1024
+
+#define L3_MAX_SEQNUM 256

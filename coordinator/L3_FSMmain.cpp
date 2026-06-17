@@ -78,8 +78,7 @@ static uint8_t L3_getTraderPairRetryCnt(uint8_t pendingTxn_id,
 
 // 시퀀스 번호 생성 함수
 static uint8_t L3_getNextSeqNum(uint8_t id) {
-  seqNum[id] = (seqNum[id] + 1) % L3_MSG_MAX_SEQNUM;
-  if (seqNum[id] == 0) seqNum[id] = 1;
+  seqNum[id] = (seqNum[id] + 1) % L3_MAX_SEQNUM;
   return seqNum[id];
 }
 
