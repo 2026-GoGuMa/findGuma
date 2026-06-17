@@ -33,6 +33,11 @@ static uint8_t sduLen;
 
 static uint8_t pduBuffer[SDUBUFFER_SIZE];
 static uint8_t pduBufferSize;
+// 1-slot 송신 큐: dataToSend 점유 중 들어온 요청을 1개 보관
+static uint8_t queuedSdu[L2_MSG_MAXDATASIZE];
+static uint8_t queuedSduLen = 0;
+static uint8_t queuedDestId = 0;
+static bool    hasQueuedMsg  = false;
 // ARQ parameters -------------------------------------------------------------
 static uint8_t seqNum[MAX_TRADERID] = {0};  // ARQ sequence number
 #ifndef DISABLE_ARQ
@@ -86,12 +91,26 @@ int L2_pullSduBuffer(uint8_t size) {
 }
 
 void L2_LLI_handleDataReq(uint8_t* sdu, uint8_t len, uint8_t destId) {
-  if (L2_configDestId(destId) == 1 &&
-      L2_event_checkEventFlag(L2_event_dataToSendBuffer)) {
+  // sduIn이 이미 점유 중이면 큐에 보관 (L2 FSM이 아직 처리 전)
+  if (L2_event_checkEventFlag(L2_event_dataToSend)) {
+    if (!hasQueuedMsg) {
+      uint8_t qLen = (len < L2_MSG_MAXDATASIZE) ? len : L2_MSG_MAXDATASIZE;
+      memcpy(queuedSdu, sdu, qLen);
+      queuedSduLen = qLen;
+      queuedDestId = destId;
+      hasQueuedMsg = true;
+      debug_if(DBGMSG_L2, "[L2] message queued for dest %i\n", destId);
+    } else {
+      debug_if(DBGMSG_L2,
+               "[L2][WARNING] queue full, dropping message to dest %i\n",
+               destId);
+    }
+    return;
+  }
+
+  if (L2_configDestId(destId) == 1) {
     debug_if(DBGMSG_L2,
-             "[L2] Failed to handle DATA_REQ (dest ID is invalid or data TX is "
-             "in progress...(SDU flag : %i)\n",
-             L2_event_checkEventFlag(L2_event_dataToSendBuffer));
+             "[L2] Failed to handle DATA_REQ (invalid dest ID %i)\n", destId);
     return;
   }
 
@@ -101,7 +120,6 @@ void L2_LLI_handleDataReq(uint8_t* sdu, uint8_t len, uint8_t destId) {
   } else {
     memcpy(sduBuffer, sdu, len);
     sduBufferSize = len;
-
     L2_pullSduBuffer(L2_MSG_MAXDATASIZE);
     L2_event_setEventFlag(L2_event_dataToSendBuffer);
   }
@@ -234,6 +252,13 @@ void L2_FSMrun(void) {
 
         if (L2_pullSduBuffer(L2_MSG_MAXDATASIZE) == 0)
           L2_event_clearEventFlag(L2_event_dataToSendBuffer);
+      } else if (hasQueuedMsg) {
+        // 이전 전송이 완료되어 IDLE로 돌아왔을 때 큐에 보관된 메시지 처리
+        hasQueuedMsg = false;
+        L2_configDestId(queuedDestId);
+        memcpy(sduIn, queuedSdu, queuedSduLen);
+        sduLen = queuedSduLen;
+        L2_event_setEventFlag(L2_event_dataToSend);
       }
 #ifndef DISABLE_ARQ
       // ignore events (arqEvent_dataTxDone, arqEvent_ackTxDone,
