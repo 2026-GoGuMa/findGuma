@@ -34,7 +34,7 @@ static uint8_t sduLen;
 static uint8_t pduBuffer[SDUBUFFER_SIZE];
 static uint8_t pduBufferSize;
 // ARQ parameters -------------------------------------------------------------
-static uint8_t seqNum = 0;  // ARQ sequence number
+static uint8_t seqNum[MAX_TRADERID] = {0};  // ARQ sequence number
 #ifndef DISABLE_ARQ
 static uint8_t retxCnt = 0;  // ARQ retransmission counter
 static uint8_t arqAck[5];    // ARQ ACK PDU
@@ -182,11 +182,11 @@ void L2_FSMrun(void) {
         // L3_LLI_dataInd(L2_msg_getWord(dataPtr), srcId,
         // size-L2_MSG_OFFSET_DATA, L2_LLI_getSnr(), L2_LLI_getRssi());
 #ifndef DISABLE_ARQ
-        if (brflag == 0 && seqNum != L2_msg_getSeq(dataPtr))
+        if (brflag == 0 && seqNum[srcId] != L2_msg_getSeq(dataPtr))
           debug(
               "[L3][WARNING] Invalid PDU SN (%i) while (%i) is required! "
               "discarding it...\n",
-              L2_msg_getSeq(dataPtr), seqNum);
+              L2_msg_getSeq(dataPtr), seqNum[srcId]);
         else
 #endif
           L2_aggregateData(dataPtr, srcId, size, brflag, flag_end);
@@ -198,8 +198,8 @@ void L2_FSMrun(void) {
           main_state = L2STATE_IDLE;
         } else {
           // ACK transmission
-          if (brflag == 0 && seqNum == L2_msg_getSeq(dataPtr))
-            seqNum = (seqNum + 1) % L2_MSSG_MAX_SEQNUM;
+          if (brflag == 0 && seqNum[srcId] == L2_msg_getSeq(dataPtr))
+            seqNum[srcId] = (seqNum[srcId] + 1) % L2_MSSG_MAX_SEQNUM;
           L2_msg_encodeAck(arqAck, L2_msg_getSeq(dataPtr));
           L2_LLI_sendData(arqAck, L2_MSG_ACKSIZE, srcId);
 
@@ -213,18 +213,18 @@ void L2_FSMrun(void) {
       {
         // msg header setting
         pduSize = L2_msg_encodeData(
-            arqPdu, sduIn, seqNum, sduLen,
+            arqPdu, sduIn, seqNum[destL2ID], sduLen,
             L2_event_checkEventFlag(L2_event_dataToSendBuffer) == 0);
         L2_LLI_sendData(arqPdu, pduSize, destL2ID);
 
 #ifndef DISABLE_ARQ
         // Setting ARQ parameter
         if (destL2ID != L2_BROADCAST_ID)
-          seqNum = (seqNum + 1) % L2_MSSG_MAX_SEQNUM;
+          seqNum[destL2ID] = (seqNum[destL2ID] + 1) % L2_MSSG_MAX_SEQNUM;
         retxCnt = 0;
 #endif
         debug_if(DBGMSG_L2, "[L2] sending to %i (seq:%i)\n", destL2ID,
-                 (seqNum - 1) % L2_MSSG_MAX_SEQNUM);
+                 (seqNum[destL2ID] - 1) % L2_MSSG_MAX_SEQNUM);
 
         main_state = L2STATE_TX;
 
@@ -363,11 +363,11 @@ void L2_FSMrun(void) {
         // L3_LLI_dataInd(L2_msg_getWord(dataPtr), srcId,
         // size-L2_MSG_OFFSET_DATA, L2_LLI_getSnr(), L2_LLI_getRssi());
 #ifndef DISABLE_ARQ
-        if (brflag == 0 && seqNum != L2_msg_getSeq(dataPtr))
+        if (brflag == 0 && seqNum[srcId] != L2_msg_getSeq(dataPtr))
           debug(
               "[L3][WARNING] Invalid PDU SN (%i) while (%i) is required! "
               "discarding it...\n",
-              L2_msg_getSeq(dataPtr), seqNum);
+              L2_msg_getSeq(dataPtr), seqNum[srcId]);
         else
 #endif
           L2_aggregateData(dataPtr, srcId, size, brflag, flag_end);
@@ -379,8 +379,8 @@ void L2_FSMrun(void) {
           main_state = L2STATE_IDLE;
         } else {
           // ACK transmission
-          if (brflag == 0 && seqNum == L2_msg_getSeq(dataPtr))
-            seqNum = (seqNum + 1) % L2_MSSG_MAX_SEQNUM;
+          if (brflag == 0 && seqNum[srcId] == L2_msg_getSeq(dataPtr))
+            seqNum[srcId] = (seqNum[srcId] + 1) % L2_MSSG_MAX_SEQNUM;
           L2_msg_encodeAck(arqAck, L2_msg_getSeq(dataPtr));
           L2_LLI_sendData(arqAck, L2_MSG_ACKSIZE, srcId);
 

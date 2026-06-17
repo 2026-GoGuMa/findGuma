@@ -17,7 +17,7 @@ static uint8_t main_state = L3STATE_IDLE;  // 현재 상태
 static uint8_t prev_state = main_state;    // 이전 상태(상태 전환 로그용)
 
 // FSM context variables
-static uint8_t L3SeqNum = 1;
+static uint8_t seqNum[MAX_TRADERID] = {0};
 static L3_txnInfo_t pendingTxn;
 static bool hasPendingTxn = false;
 static L3_txnInfo_t matchingTxn;  // A와 매칭되는 B의 txn 정보
@@ -77,11 +77,10 @@ static uint8_t L3_getTraderPairRetryCnt(uint8_t pendingTxn_id,
 }
 
 // 시퀀스 번호 생성 함수
-static uint8_t L3_getNextSeqNum(void) {
-  uint8_t seqNum = L3SeqNum;
-  L3SeqNum = (L3SeqNum + 1) % L3_MSG_MAX_SEQNUM;
-  if (L3SeqNum == 0) L3SeqNum = 1;
-  return seqNum;
+static uint8_t L3_getNextSeqNum(uint8_t id) {
+  seqNum[id] = (seqNum[id] + 1) % L3_MSG_MAX_SEQNUM;
+  if (seqNum[id] == 0) seqNum[id] = 1;
+  return seqNum[id];
 }
 
 // action 1: TXN 메시지 내용을 pendingTxn에 저장하는 함수
@@ -97,8 +96,8 @@ static void L3_storeTxn(L3_txnInfo_t* txnInfo) {
 // action 3-1: Trader에게 PRICE REC 메시지 보내는 함수
 static void L3_sendRecPrice(uint8_t traderId, uint16_t avg_price) {
   uint8_t rec[L3_MSG_REC_SIZE];
-  uint8_t pduSize = L3_msg_encodeRec(rec, L3_getNextSeqNum(), L3_COORDINATOR_ID,
-                                     traderId, avg_price);
+  uint8_t pduSize = L3_msg_encodeRec(rec, L3_getNextSeqNum(traderId),
+                                     L3_COORDINATOR_ID, traderId, avg_price);
   L3_LLI_dataReqFunc(rec, pduSize, traderId);
   debug_if(DBGMSG_L3, "[L3] PRICE REC sent to trader %i with price %i\n",
            traderId, avg_price);
@@ -108,8 +107,8 @@ static void L3_sendRecPrice(uint8_t traderId, uint16_t avg_price) {
 static void L3_sendRecLoc(uint8_t traderId) {
   uint8_t rec[L3_MSG_REC_SIZE];
   uint16_t avg_loc = AVG_LOC;
-  uint8_t pduSize = L3_msg_encodeRec(rec, L3_getNextSeqNum(), L3_COORDINATOR_ID,
-                                     traderId, avg_loc);
+  uint8_t pduSize = L3_msg_encodeRec(rec, L3_getNextSeqNum(traderId),
+                                     L3_COORDINATOR_ID, traderId, avg_loc);
   L3_LLI_dataReqFunc(rec, pduSize, traderId);
   debug_if(DBGMSG_L3, "[L3] LOC REC sent to trader %i with location %05i\n",
            traderId, avg_loc);
@@ -118,8 +117,8 @@ static void L3_sendRecLoc(uint8_t traderId) {
 // action 4: Trader에게 MCH 메시지 보내는 함수
 static void L3_sendMch(uint8_t traderId, uint8_t accept) {
   uint8_t mch[L3_MSG_MCH_SIZE];
-  uint8_t pduSize = L3_msg_encodeMch(mch, L3_getNextSeqNum(), L3_COORDINATOR_ID,
-                                     traderId, accept);
+  uint8_t pduSize = L3_msg_encodeMch(mch, L3_getNextSeqNum(traderId),
+                                     L3_COORDINATOR_ID, traderId, accept);
   L3_LLI_dataReqFunc(mch, pduSize, traderId);
   debug_if(DBGMSG_L3, "[L3] MCH sent to trader %i with accept %i\n", traderId,
            accept);
@@ -128,7 +127,7 @@ static void L3_sendMch(uint8_t traderId, uint8_t accept) {
 // action 5: Trader에게 WAIT_PAIR 메시지 보내는 함수
 static void L3_sendWaitPair(uint8_t traderId) {
   uint8_t waitPair[L3_MSG_WAIT_PAIR_SIZE];
-  uint8_t pduSize = L3_msg_encodeWaitPair(waitPair, L3_getNextSeqNum(),
+  uint8_t pduSize = L3_msg_encodeWaitPair(waitPair, L3_getNextSeqNum(traderId),
                                           L3_COORDINATOR_ID, traderId);
   L3_LLI_dataReqFunc(waitPair, pduSize, traderId);
   debug_if(DBGMSG_L3, "[L3] WAIT_PAIR sent to trader %i\n", traderId);
