@@ -115,13 +115,15 @@ void L3_FSMrun(void) {
         uint8_t size = L3_LLI_getSize();    // 메시지 길이
 
         if (L3_msg_checkIfWaitPair(msg, size)) {
-          pc.printf("[L3] Waiting for pair. . . . . .\n");
+          pc.printf("Currently waiting for pair. . . . . . \n");
+          debug_if(DBGMSG_L3, "[L3] Wait Pair arrived from %i \n", srcId);
           if (srcId == coordId) {
             L3_timer_startTimer(
                 L3_PAIR_TIMEOUT);  // 타이머 시작 (TXN 보내고 REC 기다리는 동안)
             main_state = L3STATE_WAIT_PRICE_REC;  // 상태 전환
+          } else {
+            debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
           }
-          debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
         } else {
           // WAIT_PAIR 메시지가 아닌 TXN, CNF 메시지나 알 수 없는 메시지가 오는
           // 경우
@@ -131,7 +133,8 @@ void L3_FSMrun(void) {
         L3_event_clearEventFlag(L3_event_msgRcvd);
       }
       L3_action_sendTxn();
-      // debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . . ");
+      debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . , 현재 SEQ_NUM: %i\n",
+               seq_num);
       break;
 
     case L3STATE_WAIT_PRICE_REC:
@@ -152,8 +155,9 @@ void L3_FSMrun(void) {
             pc.printf("[L3][Trader] avg_price=%u. Accept? (1=yes / 0=no): ",
                       rcvd_avg_price);
             waiting_price_cnf = 1;  // 사용자 입력 대기 중
+          } else {
+            debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
           }
-          debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
         } else {
           // coordinator 로부터 받은 메시지가 REC 타입이 아닐 경우 (WAIT_PAIR,
           // MCH PDU 또는 알 수 없는 메시지가 온 경우)
@@ -211,8 +215,9 @@ void L3_FSMrun(void) {
             pc.printf("[L3][Trader] avg_loc=%u. Accept? (1=yes / 0=no): ",
                       rcvd_avg_loc);
             waiting_loc_cnf = 1;  // 사용자 입력 대기 중
+          } else {
+            debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
           }
-          debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
         } else if (L3_msg_checkIfMch(msg, size)) {
           // Event C. MCH PDU가 온 경우
           if (srcId == coordId) {
@@ -277,8 +282,9 @@ void L3_FSMrun(void) {
             uint8_t success = L3_msg_decodeMch(msg);  // 매칭 성공 여부 추출
             L3_action_reset(success);
             main_state = L3STATE_BROADCASTING;
+          } else {
+            debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
           }
-          debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
         } else {
           // MCH 타입이 아닌 메시지가 온 경우
           debug_if(DBGMSG_L3,
