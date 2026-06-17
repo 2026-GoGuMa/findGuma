@@ -127,7 +127,7 @@ static void L3_sendMch(uint8_t traderId, uint8_t accept) {
 // action 5: Trader에게 WAIT_PAIR 메시지 보내는 함수
 static void L3_sendWaitPair(uint8_t traderId) {
   uint8_t waitPair[L3_MSG_WAIT_PAIR_SIZE];
-  uint8_t pduSize = L3_msg_encodeWaitPair(waitPair, L3_getNextSeqNum(traderId),
+  uint8_t pduSize = L3_msg_encodeWaitPair(waitPair, seqNum[traderId],
                                           L3_COORDINATOR_ID, traderId);
   L3_LLI_dataReqFunc(waitPair, pduSize, traderId);
   debug_if(DBGMSG_L3, "[L3] WAIT_PAIR sent to trader %i\n", traderId);
