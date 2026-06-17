@@ -52,7 +52,7 @@ static void L3_action_sendTxn(void) {
                                   goods, price);
   // 조립된 메시지를 LL 레이어를 통해 broadcasting - 모두에게 전송
   L3_LLI_dataReqFunc(sdu, size, L3_BROADCAST_ID);
-  debug_if(DBGMSG_L3, "[L3] TXN sent\n");
+  // debug_if(DBGMSG_L3, "[L3] TXN sent\n");
 }
 
 // action 2-1. 가격 CNF 전송: 사용자 입력값(accept)을 그대로 전달
@@ -131,7 +131,7 @@ void L3_FSMrun(void) {
         L3_event_clearEventFlag(L3_event_msgRcvd);
       }
       L3_action_sendTxn();
-      debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . . ");
+      // debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . . ");
       break;
 
     case L3STATE_WAIT_PRICE_REC:
