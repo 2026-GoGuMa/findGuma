@@ -18,7 +18,7 @@ void (*L3_LLI_reconfigSrcIdReqFunc)(uint8_t myId);                            //
 // L2 → L3 수신 콜백: 패킷이 도착하면 L2가 이 함수를 호출
 void L3_LLI_dataInd(uint8_t* dataPtr, uint8_t srcId, uint8_t size, int8_t snr,
                     int16_t rssi) {
-  debug_if(DBGMSG_L3, "\n[L3] --> DATA IND : size:%i, %s\n", size, dataPtr);
+  //debug_if(DBGMSG_L3, "\n[L3] --> DATA IND : size:%i, %s\n", size, dataPtr);
 
   memcpy(rcvdMsg, dataPtr, size * sizeof(uint8_t));  // 수신 버퍼에 패킷 복사
   rcvdSize  = size;
@@ -31,13 +31,13 @@ void L3_LLI_dataInd(uint8_t* dataPtr, uint8_t srcId, uint8_t size, int8_t snr,
 
 // L2 → L3 송신 완료 콜백: 데이터 전송이 끝나면 L2가 이 함수를 호출
 void L3_LLI_dataCnf(uint8_t res) {
-  debug_if(DBGMSG_L3, "\n --> DATA CNF : res : %i\n", res);
+  // debug_if(DBGMSG_L3, "\n --> DATA CNF : res : %i\n", res);
   L3_event_setEventFlag(L3_event_dataSendCnf);
 }
 
 // L2 → L3 SrcId 재설정 완료 콜백
 void L3_LLI_reconfigSrcIdCnf(uint8_t res) {
-  debug_if(DBGMSG_L3, "\n --> RECONFIG SRCID CNF : res : %i\n", res);
+  //debug_if(DBGMSG_L3, "\n --> RECONFIG SRCID CNF : res : %i\n", res);
   L3_event_setEventFlag(L3_event_recfgSrcIdCnf);
 }
 
