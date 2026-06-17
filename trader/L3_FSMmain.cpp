@@ -131,6 +131,7 @@ void L3_FSMrun(void) {
         L3_event_clearEventFlag(L3_event_msgRcvd);
       }
       L3_action_sendTxn();
+      debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . . ");
       break;
 
     case L3STATE_WAIT_PRICE_REC:

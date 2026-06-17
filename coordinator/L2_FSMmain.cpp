@@ -42,10 +42,10 @@ static uint8_t arqAck[5];    // ARQ ACK PDU
 #endif
 static uint8_t reqestedId = 0;
 
-static uint8_t L2_validityCheck_ID(void) {
-  if (myL2ID == destL2ID) {
+static uint8_t L2_validityCheck_ID(uint8_t check_ID) {
+  if (myL2ID == check_ID) {
     debug("[WARNING] myID and destination ID is the same! my:%i, dest:%i\n",
-          myL2ID, destL2ID);
+          myL2ID, check_ID);
     return 1;
   }
 
@@ -53,11 +53,10 @@ static uint8_t L2_validityCheck_ID(void) {
 }
 
 uint8_t L2_configDestId(uint8_t destId) {
-  if (L2_validityCheck_ID() == 1) {
+  if (L2_validityCheck_ID(destId) == 1) {
     debug("[L2] Failed to config dest to ID %i\n", destId);
     return 1;
   }
-
   destL2ID = destId;
   return 0;
 }
