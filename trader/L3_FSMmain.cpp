@@ -38,10 +38,8 @@ extern Serial pc;
 
 // 시퀀스 번호 생성 함수
 static uint8_t L3_getNextSeqNum(void) {
-  uint8_t seqNum = seq_num;
-  seq_num = (seq_num + 1) % L3_MSG_MAX_SEQNUM;
-  if (seq_num == 0) seq_num = 1;
-  return seqNum;
+  seq_num = (seq_num + 1) % L3_MAX_SEQNUM;
+  return seq_num;
 }
 
 // action 1. TXN 메시지를 만들어 coordinator에게 전송
