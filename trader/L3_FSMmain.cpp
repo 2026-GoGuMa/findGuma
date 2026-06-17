@@ -11,6 +11,8 @@
 #define L3STATE_WAIT_LOC_REC 2    // 가격 CNF 보냄 → 위치 REC 기다리는 중
 #define L3STATE_WAIT_LOC_MCH 3    // 위치 CNF 보냄 → 매칭 결과 기다리는 중
 
+#define L3_BROADCAST_ID 255
+
 // state variables
 static uint8_t main_state = L3STATE_BROADCASTING;
 static uint8_t prev_state = main_state;
@@ -46,10 +48,10 @@ static uint8_t L3_getNextSeqNum(void) {
 static void L3_action_sendTxn(void) {
   uint8_t sdu[L3_MSG_TXN_SIZE];
   // TXN 메시지를 sdu 버퍼에 조립
-  uint8_t size = L3_msg_encodeTxn(sdu, myId, coordId, L3_getNextSeqNum(),
-                                  isSeller, goods, price);
-  // 조립된 메시지를 LL 레이어를 통해 coordId 에게 전송
-  L3_LLI_dataReqFunc(sdu, size, coordId);
+  uint8_t size = L3_msg_encodeTxn(sdu, myId, L3_BROADCAST_ID, seq_num, isSeller,
+                                  goods, price);
+  // 조립된 메시지를 LL 레이어를 통해 broadcasting - 모두에게 전송
+  L3_LLI_dataReqFunc(sdu, size, L3_BROADCAST_ID);
   debug_if(DBGMSG_L3, "[L3] TXN sent\n");
 }
 

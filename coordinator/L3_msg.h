@@ -43,8 +43,6 @@
 #define L3_MSG_TXN_SIZE (L3_MSG_OFFSET_PAYLOAD + L3_TXN_PAYLOAD_SIZE)
 #define L3_MSG_CNF_SIZE (L3_MSG_OFFSET_PAYLOAD + 1)
 
-#define L3_MSG_MAX_SEQNUM 1024
-
 // TXN 메시지의 내용을 담는 구조체
 typedef struct L3_txnInfo {
   uint8_t id;
