@@ -13,9 +13,7 @@ void L3_timer_timeoutHandler(void) {
 
 // 타이머 시작
 void L3_timer_startTimer(uint8_t waitSec) {
-  uint8_t waitTime =
-      L3_MINWAITTIME + rand() % (L3_MAXWAITTIME - L3_MINWAITTIME);
-  timer.attach(L3_timer_timeoutHandler, waitTime);
+  timer.attach(L3_timer_timeoutHandler, waitSec);
   timerStatus = 1;  // waitTime초 후에 timeoutHandler를 자동 호출하도록 등록
 }
 

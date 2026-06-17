@@ -13,9 +13,7 @@ void L3_timer_timeoutHandler(void) {
 }
 
 // timer related functions ---------------------------
-void L3_timer_startTimer() {
-  uint8_t waitTime =
-      L3_MINWAITTIME + rand() % (L3_MAXWAITTIME - L3_MINWAITTIME);
+void L3_timer_startTimer(uint8_t waitTime) {
   timer.attach(L3_timer_timeoutHandler, waitTime);
   timerStatus = 1;
 }

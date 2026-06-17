@@ -172,7 +172,7 @@ void L3_FSMrun(void) {
             if (L3_signalConditionPassed(txnInfo.signal)) {
               L3_storeTxn(&txnInfo);
               L3_sendWaitPair(txnInfo.id);
-              L3_timer_startTimer();
+              L3_timer_startTimer(L3_PAIR_TIMEOUT);
               main_state = L3STATE_WAIT_PAIR;
             } else {
               debug_if(DBGMSG_L3,
@@ -272,7 +272,7 @@ void L3_FSMrun(void) {
                     pendingTxn.id, matchingTxn.id, avg_price);
 
                 // action 6 & 7: 타이머 재시작 (앞서 stop했으므로 다시 start)
-                L3_timer_startTimer();
+                L3_timer_startTimer(L3_CNF_TIMEOUT);
 
                 main_state = L3STATE_WAIT_PRICE_CNF;
               }
@@ -341,7 +341,7 @@ void L3_FSMrun(void) {
 
               // 타이머 정지 및 MCH 메시지 타이머 재시작
               L3_timer_stopTimer();
-              L3_timer_startTimer();
+              L3_timer_startTimer(L3_CNF_TIMEOUT);
 
               // 값 초기화
               cnf_p_accpt = false;
