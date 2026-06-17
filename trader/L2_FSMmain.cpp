@@ -114,13 +114,13 @@ void L2_LLI_reconfigSrcId(uint8_t myId) {
   L2_event_setEventFlag(L2_event_reconfigSrcId);
 }
 
-void L2_initFSM(uint8_t myId) {
+void L2_initFSM(uint8_t myId, uint8_t destId) {
   myL2ID = myId;
-  destL2ID = 0;
+  destL2ID = destId;
 
   L2_event_clearAllEventFlag();
 
-  L2_validityCheck_ID();
+  L2_validityCheck_ID(destL2ID);
 
   L2_LLI_initLowLayer(myL2ID);
   L3_LLI_setDataReqFunc(L2_LLI_handleDataReq);

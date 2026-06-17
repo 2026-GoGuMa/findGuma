@@ -120,7 +120,7 @@ void L2_initFSM(uint8_t myId) {
 
   L2_event_clearAllEventFlag();
 
-  L2_validityCheck_ID();
+  L2_validityCheck_ID(destL2ID);
 
   L2_LLI_initLowLayer(myL2ID);
   L3_LLI_setDataReqFunc(L2_LLI_handleDataReq);

@@ -48,7 +48,7 @@ int main(void) {
             input_price);
 
   // FSM 초기화
-  L2_initFSM(input_thisId);
+  L2_initFSM(input_thisId, L3_COORDINATOR_ID);
   L3_initFSM(input_thisId, L3_COORDINATOR_ID, input_isSeller, input_goods,
              input_price);
 
