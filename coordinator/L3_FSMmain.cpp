@@ -171,6 +171,7 @@ void L3_FSMrun(void) {
             // c1. 신호 세기 확인
             if (L3_signalConditionPassed(txnInfo.signal)) {
               L3_storeTxn(&txnInfo);
+              debug_if(DBGMSG_L3, "[L3] 현재 SEQ_NUM: %i", seqNum[txnInfo.id]);
               L3_sendWaitPair(txnInfo.id);
               L3_timer_startTimer(L3_PAIR_TIMEOUT);
               main_state = L3STATE_WAIT_PAIR;
@@ -185,7 +186,7 @@ void L3_FSMrun(void) {
         } else if (L3_msg_checkIfCnf(msg, size)) {
           debug_if(DBGMSG_L3, "[L3] CNF ignored in IDLE state\n");
         } else {
-          debug_if(DBGMSG_L3, "[L3] unknown PDU ignored in IDLE state\n");
+          // debug_if(DBGMSG_L3, "[L3] unknown PDU ignored in IDLE state\n");
         }
         L3_event_clearEventFlag(L3_event_msgRcvd);
       }
@@ -212,9 +213,9 @@ void L3_FSMrun(void) {
         if (L3_LLI_getSrcId() == pendingTxn.id) {
           // 같은 trader가 같은 요청을 다시 보낸 경우는 중복으로 보고
           // 무시한다.
-          debug_if(DBGMSG_L3,
-                   "[L3] duplicated TXN from trader %i ignored in WAIT_PAIR\n",
-                   pendingTxn.id);
+          // debug_if(DBGMSG_L3,
+          //          "[L3] duplicated TXN from trader %i ignored in
+          //          WAIT_PAIR\n", pendingTxn.id);
         }
 
         // Event A. TXN 수신 - 메시지가 TXN이라면 내용을 꺼내서 TXNinfo에 담음
@@ -258,7 +259,6 @@ void L3_FSMrun(void) {
                 // (matchingTxn이 BROADCASTING → WAIT_PRICE_REC로 전환할 시간
                 // 확보)
                 L3_sendWaitPair(matchingTxn.id);
-                wait(1);
 
                 // action 3: Send REC
                 avg_price = (pendingTxn.price + matchingTxn.price) / 2;
@@ -281,7 +281,8 @@ void L3_FSMrun(void) {
           }
         } else {
           // 타입을 판별할 수 없는 PDU는 잘못된 메시지로 보고 무시한다.
-          debug_if(DBGMSG_L3, "[L3] unknown PDU ignored in WAIT_PAIR state\n");
+          // debug_if(DBGMSG_L3, "[L3] unknown PDU ignored in WAIT_PAIR
+          // state\n");
         }
 
         // msgRcvd 이벤트는 이번 수신 패킷에 대한 처리가 끝났으므로 지운다.
@@ -321,9 +322,9 @@ void L3_FSMrun(void) {
               cnf_m_accpt = false;
             }
           } else {
-            debug_if(DBGMSG_L3,
-                     "[L3][WARNING] CNF received from unknown trader %i\n",
-                     srcId);
+            // debug_if(DBGMSG_L3,
+            //          "[L3][WARNING] CNF received from unknown trader %i\n",
+            //          srcId);
           }
 
           // Event B. 둘 다에게서 CNF를 수신했을 경우
@@ -368,8 +369,8 @@ void L3_FSMrun(void) {
         } else {
           // CNF 메시지가 아닌 TXN 메시지나 알 수 없는 메시지가 온 경우
           L3_event_clearEventFlag(L3_event_msgRcvd);
-          debug_if(DBGMSG_L3,
-                   "[L3] unknown PDU ignored in WAIT_PRICE_CNF state\n");
+          // debug_if(DBGMSG_L3,
+          //          "[L3] unknown PDU ignored in WAIT_PRICE_CNF state\n");
         }
       }
       // Event D. CNF 송신 timeout
@@ -411,9 +412,9 @@ void L3_FSMrun(void) {
               cnf_m_accpt = false;
             }
           } else {
-            debug_if(DBGMSG_L3,
-                     "[L3][WARNING] CNF received from unknown trader %i\n",
-                     srcId);
+            // debug_if(DBGMSG_L3,
+            //          "[L3][WARNING] CNF received from unknown trader %i\n",
+            //          srcId);
           }
 
           // Event B. 둘 다에게서 CNF를 수신했을 경우
@@ -454,8 +455,8 @@ void L3_FSMrun(void) {
         } else {
           // CNF 메시지가 아닌 TXN 메시지나 알 수 없는 메시지가 온 경우
           L3_event_clearEventFlag(L3_event_msgRcvd);
-          debug_if(DBGMSG_L3,
-                   "[L3] unknown PDU ignored in WAIT_LOC_CNF state\n");
+          // debug_if(DBGMSG_L3,
+          //          "[L3] unknown PDU ignored in WAIT_LOC_CNF state\n");
         }
       }
       // Event D. CNF 송신 timeout

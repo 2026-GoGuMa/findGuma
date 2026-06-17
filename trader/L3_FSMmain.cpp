@@ -127,14 +127,15 @@ void L3_FSMrun(void) {
         } else {
           // WAIT_PAIR 메시지가 아닌 TXN, CNF 메시지나 알 수 없는 메시지가 오는
           // 경우
-          debug_if(DBGMSG_L3,
-                   "[L3] unknown PDU ignored in BROADCASTING state\n");
+          // debug_if(DBGMSG_L3,
+          //          "[L3] unknown PDU ignored in BROADCASTING state\n");
         }
         L3_event_clearEventFlag(L3_event_msgRcvd);
+      } else {
+        L3_action_sendTxn();
+        debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . , 현재 SEQ_NUM: %i\n",
+                 seq_num);
       }
-      L3_action_sendTxn();
-      debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . , 현재 SEQ_NUM: %i\n",
-               seq_num);
       break;
 
     case L3STATE_WAIT_PRICE_REC:
@@ -161,8 +162,8 @@ void L3_FSMrun(void) {
         } else {
           // coordinator 로부터 받은 메시지가 REC 타입이 아닐 경우 (WAIT_PAIR,
           // MCH PDU 또는 알 수 없는 메시지가 온 경우)
-          debug_if(DBGMSG_L3,
-                   "[L3] unknown PDU ignored in WAIT_PRICE_REC state\n");
+          // debug_if(DBGMSG_L3,
+          //          "[L3] unknown PDU ignored in WAIT_PRICE_REC state\n");
         }
         L3_event_clearEventFlag(
             L3_event_msgRcvd);  // 메시지 수신 이벤트 플래그 끄기
@@ -231,8 +232,8 @@ void L3_FSMrun(void) {
         } else {
           // coordinator 로부터 받은 메시지가 REC 타입이 아닐 경우 (WAIT_PAIR
           // 메시지나 알 수 없는 메시지가 온 경우)
-          debug_if(DBGMSG_L3,
-                   "[L3] unknown PDU ignored in WAIT_LOC_REC state\n");
+          // debug_if(DBGMSG_L3,
+          //          "[L3] unknown PDU ignored in WAIT_LOC_REC state\n");
         }
         L3_event_clearEventFlag(
             L3_event_msgRcvd);  // 메시지 수신 이벤트 플래그 끄기
@@ -287,8 +288,8 @@ void L3_FSMrun(void) {
           }
         } else {
           // MCH 타입이 아닌 메시지가 온 경우
-          debug_if(DBGMSG_L3,
-                   "[L3] unknown PDU ignored in WAIT_LOC_MCH state\n");
+          // debug_if(DBGMSG_L3,
+          //          "[L3] unknown PDU ignored in WAIT_LOC_MCH state\n");
         }
         L3_event_clearEventFlag(
             L3_event_msgRcvd);  // 메시지 수신 이벤트 플래그 끄기
