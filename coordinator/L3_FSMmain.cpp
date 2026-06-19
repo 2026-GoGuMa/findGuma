@@ -10,7 +10,6 @@
 #define L3STATE_WAIT_PAIR 1
 #define L3STATE_WAIT_PRICE_CNF 2
 #define L3STATE_WAIT_LOC_CNF 3
-#define L3STATE_WAIT_MATCHING_PAIR_SENT 4
 #define MAX_INDEX 65536
 
 // state variables
@@ -168,11 +167,12 @@ void L3_FSMrun(void) {
         if (L3_msg_checkIfTxn(msg, size)) {
           L3_txnInfo_t txnInfo;             // txn 파싱 결과 담을 구조체 선언
           int16_t rssi = L3_LLI_getRssi();  // 신호 세기 가져오기
-          if (L3_msg_decodeTxn(msg, size, &txnInfo, rssi)) {
+          if (L3_msg_decodeTxn(msg, size, &txnInfo, rssi)) {  // 크기가 0 아님
             // c1. 신호 세기 확인
             if (L3_signalConditionPassed(txnInfo.signal)) {
               L3_storeTxn(&txnInfo);
-              debug_if(DBGMSG_L3, "[L3] 현재 SEQ_NUM: %i", seqNum[txnInfo.id]);
+              // debug_if(DBGMSG_L3, "[L3] 현재 SEQ_NUM: %i",
+              // seqNum[txnInfo.id]);
               L3_sendWaitPair(txnInfo.id);
               L3_timer_startTimer(L3_PAIR_TIMEOUT);
               main_state = L3STATE_WAIT_PAIR;
@@ -181,7 +181,7 @@ void L3_FSMrun(void) {
                        "[L3] TXN ignored, RSSI %i is lower than minimum %i\n",
                        txnInfo.signal, L3_MIN_RSSI);
             }
-          } else {
+          } else {  // 크기가 0인 TXN
             debug_if(DBGMSG_L3, "[L3] invalid TXN received in IDLE state\n");
           }
         } else if (L3_msg_checkIfCnf(msg, size)) {
@@ -257,19 +257,28 @@ void L3_FSMrun(void) {
               else {
                 matchingTxn = txnInfo;
 
-                // WAIT_PAIR를 matchingTxn에게 전송
-                // wait(1) 대신 FSM 상태로 전송 완료를 기다림
-                // (polling loop에서 wait()는 L2_FSMrun()을 블로킹하므로
-                //  WAIT_PAIR가 실제 전송되지 않고 이후 REC에 덮어씌워짐)
-                L3_event_clearEventFlag(L3_event_dataSendCnf);
+                // action 8: 두 번째로 매칭된 trader에게 WAIT_PAIR 전송
                 L3_sendWaitPair(matchingTxn.id);
-
                 debug_if(DBGMSG_L3,
                          "[L3] WAIT_PAIR sent to matching trader %i, "
                          "waiting for send CNF\n",
                          matchingTxn.id);
 
-                main_state = L3STATE_WAIT_MATCHING_PAIR_SENT;
+                // action 3: Send REC
+                avg_price = (pendingTxn.price + matchingTxn.price) / 2;
+                L3_sendRecPrice(pendingTxn.id, avg_price);
+                L3_sendRecPrice(matchingTxn.id, avg_price);
+
+                debug_if(
+                    DBGMSG_L3,
+                    "[L3] REC sent to both traders (%i, %i) with avg price %i, "
+                    "waiting for CNF\n",
+                    pendingTxn.id, matchingTxn.id, avg_price);
+
+                // action 6 & 7: 타이머 재시작 (앞서 stop했으므로 다시 start)
+                L3_timer_startTimer(L3_CNF_TIMEOUT);
+
+                main_state = L3STATE_WAIT_PRICE_CNF;
               }
             }
             // !c2의 경우 WAIT_PAIR로 돌아간다.
@@ -290,26 +299,6 @@ void L3_FSMrun(void) {
         // 새로운 PDU를 보내는 로직 추가 필요
         L3_resetAll();
         main_state = L3STATE_IDLE;
-      }
-      break;
-
-    case L3STATE_WAIT_MATCHING_PAIR_SENT:
-      // matchingTxn의 WAIT_PAIR 전송 완료 후 양측에 REC 전송
-      // 두 번째 REC는 L2 큐가 첫 번째 완료 후 자동으로 순서대로 전송
-      if (L3_event_checkEventFlag(L3_event_dataSendCnf)) {
-        L3_event_clearEventFlag(L3_event_dataSendCnf);
-
-        avg_price = (pendingTxn.price + matchingTxn.price) / 2;
-        L3_sendRecPrice(pendingTxn.id, avg_price);
-        L3_sendRecPrice(matchingTxn.id, avg_price);
-
-        debug_if(DBGMSG_L3,
-                 "[L3] REC queued for both traders (%i, %i) with avg price %i, "
-                 "waiting for CNF\n",
-                 pendingTxn.id, matchingTxn.id, avg_price);
-
-        L3_timer_startTimer(L3_CNF_TIMEOUT);
-        main_state = L3STATE_WAIT_PRICE_CNF;
       }
       break;
 
