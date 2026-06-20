@@ -193,11 +193,12 @@ void L2_FSMrun(void) {
         destL2ID = item.destId;
         uint8_t len = item.data.size();
         uint8_t* sdu = item.data.data();
+        uint8_t isEnd = item.isEnd;
 
         if (len < L2_MSG_MAXDATASIZE) {
           memcpy(sduIn, sdu, len);
           sduLen = len;
-          current_isEnd = item.isEnd;
+          current_isEnd = isEnd;
         } else {
           memcpy(sduIn, sdu, L2_MSG_MAXDATASIZE);
           sduLen = L2_MSG_MAXDATASIZE;
@@ -205,7 +206,7 @@ void L2_FSMrun(void) {
 
           // 남은 SDU 조각
           vector<uint8_t> remaining_sdu(sdu + L2_MSG_MAXDATASIZE, sdu + len);
-          txQueue.push_front({destL2ID, remaining_sdu, item.isEnd});
+          txQueue.push_front({destL2ID, remaining_sdu, isEnd});
         }
         L2_event_setEventFlag(L2_event_dataToSend);
       } else if (L2_event_checkEventFlag(

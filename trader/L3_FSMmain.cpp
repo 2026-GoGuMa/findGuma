@@ -124,9 +124,9 @@ void L3_FSMrun(void) {
         }
 
         if (L3_msg_checkIfWaitPair(msg, size)) {
-          pc.printf("Currently waiting for pair. . . . . . \n");
           debug_if(DBGMSG_L3, "[L3] Wait Pair arrived from %i \n", srcId);
           if (srcId == coordId) {
+            pc.printf("Currently waiting for pair. . . . . . \n");
             L3_timer_startTimer(
                 L3_PAIR_TIMEOUT);  // 타이머 시작 (TXN 보내고 REC 기다리는 동안)
             main_state = L3STATE_WAIT_PRICE_REC;  // 상태 전환
@@ -205,7 +205,7 @@ void L3_FSMrun(void) {
       }
       // D. timeout 난 경우
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        pc.printf("No match from coordinator %i... Waiting for pair again",
+        pc.printf("No match from coordinator %i... Waiting for pair again\n",
                   coordId);
         L3_timer_stopTimer();
         L3_action_reset(0);
