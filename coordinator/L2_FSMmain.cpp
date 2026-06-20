@@ -209,8 +209,9 @@ void L2_FSMrun(void) {
           txQueue.push_front({destL2ID, remaining_sdu, isEnd});
         }
         L2_event_setEventFlag(L2_event_dataToSend);
-      } else if (L2_event_checkEventFlag(
-                     L2_event_dataToSend))  // if data needs to be sent
+      }
+      if (L2_event_checkEventFlag(
+              L2_event_dataToSend))  // if data needs to be sent
       {
         // msg header setting
         pduSize = L2_msg_encodeData(arqPdu, sduIn, seqNum[destL2ID], sduLen,
