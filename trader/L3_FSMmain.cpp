@@ -113,6 +113,15 @@ void L3_FSMrun(void) {
         uint8_t srcId = L3_LLI_getSrcId();  // 메시지 보낸 노드 ID
         uint8_t* msg = L3_LLI_getMsgPtr();  // 메시지 내용
         uint8_t size = L3_LLI_getSize();    // 메시지 길이
+        // 정적 변수로 카운터 선언 (함수가 끝나도 값이 유지됨)
+        static uint32_t ignore_log_cnt = 0;
+
+        // 10만 번 루프 돌 때 1번만 로그 출력 (숫자는 속도에 맞게 조절)
+        if (ignore_log_cnt++ % 100000 == 0) {
+          debug_if(DBGMSG_L3,
+                   "[L3] msg received in broadcasting state, from: %i\n",
+                   srcId);
+        }
 
         if (L3_msg_checkIfWaitPair(msg, size)) {
           pc.printf("Currently waiting for pair. . . . . . \n");
@@ -127,14 +136,20 @@ void L3_FSMrun(void) {
         } else {
           // WAIT_PAIR 메시지가 아닌 TXN, CNF 메시지나 알 수 없는 메시지가 오는
           // 경우
-          // debug_if(DBGMSG_L3,
-          //          "[L3] unknown PDU ignored in BROADCASTING state\n");
+          debug_if(DBGMSG_L3,
+                   "[L3] unknown PDU ignored in BROADCASTING state\n");
         }
         L3_event_clearEventFlag(L3_event_msgRcvd);
       } else {
-        L3_action_sendTxn();
-        debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . , 현재 SEQ_NUM: %i\n",
-                 seq_num);
+        // 정적 변수로 카운터 선언 (함수가 끝나도 값이 유지됨)
+        static uint32_t ignore_log_cnt = 0;
+
+        // 100만 번 루프 돌 때 1번만 로그 출력 (숫자는 속도에 맞게 조절)
+        if (ignore_log_cnt++ % 1000000 == 0) {
+          debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . , 현재 SEQ_NUM: %i\n",
+                   seq_num);
+          L3_action_sendTxn();
+        }
       }
       break;
 
