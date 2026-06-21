@@ -9,6 +9,7 @@
 #define L1_FREQCHANNEL 1             // 주파수 채널(x 1MHz)
 
 #define L3_PAIR_TIMEOUT 40  // 페어링 응답 대기 타임아웃(초)
+#define L3_REC_TIMEOUT 40   // 추천 응답 대기 타임아웃(초)
 #define L3_MCH_TIMEOUT 40   // 매칭 결과 대기 타임아웃(초)
 
 #define L3_COORDINATOR_ID 0  // 코디네이터 노드 ID (고정값)

@@ -178,10 +178,10 @@ void L3_FSMrun(void) {
               // 품목 번호가 배열 사이즈(4)를 넘어가면 안전하게 0번 출력
               uint8_t g_idx = (pendingTxn.goods < 4) ? pendingTxn.goods : 0;
               pc.printf(
-                  "저장된 거래자 %s: %i\n"  // %s(판매자/구매자), %i(아이디)
-                  "  - 거래 품목: %s\n"     // %s(품목명)
-                  "  - 가격($): %i\n",      // %i(가격)
-                  L3_returnTraderRole(pendingTxn.isSeller), pendingTxn.id,
+                  "저장된 거래자 [ID %i]: %s\n"
+                  "  > 거래 품목: %s\n"
+                  "  > 가격: %i$\n",
+                  pendingTxn.id, L3_returnTraderRole(pendingTxn.isSeller),
                   goods_name[g_idx], pendingTxn.price);
 
               // debug_if(DBGMSG_L3, "[L3] 현재 SEQ_NUM: %i\n",

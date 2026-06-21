@@ -34,7 +34,11 @@ static uint8_t waiting_loc_cnf = 0;
 static uint16_t rcvd_avg_price = 0;
 static uint16_t rcvd_avg_loc = 0;
 
+// serial port interface
 extern Serial pc;
+
+// 로그 관련
+static uint8_t log_loop_cnt = 100000;
 
 // --- action 함수 ---
 
@@ -71,7 +75,7 @@ static void L3_action_sendLocCnf(uint8_t accept) {
   uint8_t size =
       L3_msg_encodeCnf(sdu, myId, coordId, L3_getNextSeqNum(), accept);
   L3_LLI_dataReqFunc(sdu, size, coordId);
-  debug_if(DBGMSG_L3, "[L3] loc CNF sent (accept=%u), avg_loc=%u\n", accept,
+  debug_if(DBGMSG_L3, "[L3] loc CNF sent (accept=%u), avg_loc=%05u\n", accept,
            rcvd_avg_loc);
 }
 
@@ -81,8 +85,16 @@ static void L3_action_reset(uint8_t success) {
   waiting_loc_cnf = 0;
   rcvd_avg_price = 0;
   rcvd_avg_loc = 0;
+  L3_timer_stopTimer();
   L3_event_clearAllEventFlag();
-  pc.printf("[Trader] Trade %s\n", success ? "succeeded!" : "failed.");
+  pc.printf("거래가 %s\n",
+            success == 1 ? "성사되었습니다!"
+                         : (success == -1 ? "타임아웃 발생으로 실패하였습니다."
+                                          : "무산되었습니다."));
+}
+
+const char* L3_returnTraderRole(uint8_t isSeller) {
+  return (isSeller == 1) ? "판매자" : "구매자";
 }
 
 // --- init / run ---
@@ -94,8 +106,10 @@ void L3_initFSM(uint8_t id, uint8_t cId, uint8_t seller, uint8_t g,
   isSeller = seller;
   goods = g;
   price = p;
-  pc.printf("[Trader] id=%u coord=%u isSeller=%u goods=%u price=$%u\n", myId,
-            coordId, isSeller, goods, price);
+  pc.printf(
+      "[입력 정보 확인]"
+      "> [ID: %u] %s\n> 거래 상품: %u\n> 제시 가격: %u$\n",
+      myId, L3_returnTraderRole(isSeller), goods_name[goods], price);
 }
 
 void L3_FSMrun(void) {
@@ -108,7 +122,6 @@ void L3_FSMrun(void) {
 
   switch (main_state) {
     case L3STATE_BROADCASTING:
-      // Event A. coordinator로부터 WAIT_PAIR 를 수신했을 때
       if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
         uint8_t srcId = L3_LLI_getSrcId();  // 메시지 보낸 노드 ID
         uint8_t* msg = L3_LLI_getMsgPtr();  // 메시지 내용
@@ -117,27 +130,27 @@ void L3_FSMrun(void) {
         static uint32_t ignore_log_cnt = 0;
 
         // 10만 번 루프 돌 때 1번만 로그 출력 (숫자는 속도에 맞게 조절)
-        if (ignore_log_cnt++ % 100000 == 0) {
+        if (ignore_log_cnt++ % log_loop_cnt == 0) {
           debug_if(DBGMSG_L3,
                    "[L3] msg received in broadcasting state, from: %i\n",
                    srcId);
         }
 
+        // Event A. coordinator로부터 WAIT_PAIR 를 수신했을 때
         if (L3_msg_checkIfWaitPair(msg, size)) {
           debug_if(DBGMSG_L3, "[L3] Wait Pair arrived from %i \n", srcId);
           if (srcId == coordId) {
-            pc.printf("Currently waiting for pair. . . . . . \n");
-            L3_timer_startTimer(
-                L3_PAIR_TIMEOUT);  // 타이머 시작 (TXN 보내고 REC 기다리는 동안)
-            main_state = L3STATE_WAIT_PRICE_REC;  // 상태 전환
+            pc.printf("페어를 기다리는 중입니다. . . . . . \n");
+            L3_timer_startTimer(L3_PAIR_TIMEOUT);  // 1번 REC 타이머 동작
+            main_state = L3STATE_WAIT_PRICE_REC;   // 상태 전환
           } else {
             debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
           }
         } else {
           // WAIT_PAIR 메시지가 아닌 TXN, CNF 메시지나 알 수 없는 메시지가 오는
           // 경우
-          debug_if(DBGMSG_L3,
-                   "[L3] unknown PDU ignored in BROADCASTING state\n");
+          // debug_if(DBGMSG_L3,
+          //          "[L3] unknown PDU ignored in BROADCASTING state\n");
         }
         L3_event_clearEventFlag(L3_event_msgRcvd);
       } else {
@@ -145,11 +158,18 @@ void L3_FSMrun(void) {
         static uint32_t ignore_log_cnt = 0;
 
         // 500만 번 루프 돌 때 1번만 로그 출력 (숫자는 속도에 맞게 조절)
-        if (ignore_log_cnt++ % 5000000 == 0) {
+        if (ignore_log_cnt++ % log_loop_cnt * 5 == 0) {
           debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . , 현재 SEQ_NUM: %i\n",
                    seq_num);
+          pc.printf("중개자에게 거래 정보를 전송하는 중입니다. . . . .");
           L3_action_sendTxn();
         }
+      }
+      // 발생할 리 없는 Timeout이 발생했을 때
+      if (L3_event_checkEventFlag(L3_event_timeout)) {
+        debug_if(DBGMSG_L3,
+                 "[L3] invalid timeout occurred in BROADCASTING state\n");
+        L3_event_clearEventFlag(L3_event_timeout);
       }
       break;
 
@@ -165,19 +185,25 @@ void L3_FSMrun(void) {
           // coordinator로 부터 REC가 오면 가격 추출하고 사용자 입력 대기 시작
           if (srcId == coordId) {
             debug_if(DBGMSG_L3, "[L3] Price REC received from coordinator");
-            L3_timer_stopTimer();                    // REC 대기 타이머 정지
+            L3_timer_stopTimer();                    // 1번 REC 대기 타이머 정지
             rcvd_avg_price = L3_msg_decodeRec(msg);  // 메시지에서 가격 추출
-            pc.printf("[L3][Trader] avg_price=%u. Accept? (1=yes / 0=no): ",
-                      rcvd_avg_price);
+            pc.printf(
+                "중개 가격: %u$. 수락하시겠습니까?: \n"
+                "\n======================\n"
+                " > 수락 = 1\n"
+                " > 거절 = 0\n"
+                "\n======================\n",
+                rcvd_avg_price);
             waiting_price_cnf = 1;  // 사용자 입력 대기 중
           } else {
             debug_if(DBGMSG_L3, "[L3] Price REC Not from coordinator: %i \n",
                      srcId);
           }
         } else if (L3_msg_checkIfMch(msg, size)) {
+          // Event C. 중개자 측에서 페어 매칭 타임아웃 발생 알림 (중개자-거래자
+          // 상태 Sync를 위함)
           if (srcId == coordId) {
-            debug_if(DBGMSG_L3, "[L3] Mch received from coordinator");
-            pc.printf("페어 매칭이 실패했습니다.\n");
+            L3_action_reset(-1);
             main_state = L3STATE_BROADCASTING;
           }
         } else {
@@ -192,29 +218,23 @@ void L3_FSMrun(void) {
 
       // Event B(action 2). REC 메시지 수신 후, 제안에 대한 수락/거절 응답 송신
       if (waiting_price_cnf) {
-        if (L3_event_checkEventFlag(L3_event_userAccept)) {
-          // 사용자가 가격을 수락한 경우
-          waiting_price_cnf = 0;      // 사용자 대기 플래그 끄기
-          L3_action_sendPriceCnf(1);  // coordinator에게 수락(1) CNF 전송
-          L3_event_clearEventFlag(L3_event_userAccept);  // 이벤트 플래그 끄기
-          L3_timer_startTimer(L3_PAIR_TIMEOUT);  // 위치 REC가 안 올 경우 대비
-          main_state = L3STATE_WAIT_LOC_REC;
+        if (L3_event_checkEventFlag(L3_event_userAccept) ||
+            L3_event_checkEventFlag(L3_event_userReject)) {
+          // 수락 이벤트가 켜져 있으면 1, 아니면 0
+          uint8_t accept_flag =
+              L3_event_checkEventFlag(L3_event_userAccept) ? 1 : 0;
 
-        } else if (L3_event_checkEventFlag(L3_event_userReject)) {
-          // 사용자가 가격을 거절한 경우
-          waiting_price_cnf = 0;
-          L3_action_sendPriceCnf(0);
-          L3_action_reset(0);
-          L3_event_clearEventFlag(L3_event_userReject);
-          main_state = L3STATE_BROADCASTING;
+          debug_if(DBGMSG_L3, "[L3] coord으로 CNF 전송 완료");
+          L3_action_sendPriceCnf(accept_flag);
         }
+
+        waiting_price_cnf = 0;                // 사용자 대기 플래그 끄기
+        L3_timer_startTimer(L3_REC_TIMEOUT);  // 2번 위치 REC 타이머 작동
+        main_state = L3STATE_WAIT_LOC_REC;
       }
-      // D. timeout 난 경우
+      // D. 자체 페어 매칭 timeout 난 경우
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        pc.printf("No match from coordinator %i... Waiting for pair again\n",
-                  coordId);
-        L3_timer_stopTimer();
-        L3_action_reset(0);
+        L3_action_reset(-1);
         main_state = L3STATE_BROADCASTING;
       }
       break;
@@ -232,7 +252,7 @@ void L3_FSMrun(void) {
 
           // coordinator로 부터 REC가 오면 위치 추출하고 사용자 입력 대기 시작
           if (srcId == coordId) {
-            L3_timer_stopTimer();                  // REC 대기 타이머 정지
+            L3_timer_stopTimer();                  // 2번 REC 대기 타이머 정지
             rcvd_avg_loc = L3_msg_decodeRec(msg);  // 메시지에서 위치 추출
             pc.printf(
                 "거래자와 만날 중간 위치는 우편번호 %05u 입니다. 거래를 "
@@ -246,10 +266,6 @@ void L3_FSMrun(void) {
         } else if (L3_msg_checkIfMch(msg, size)) {
           // Event C. MCH PDU가 온 경우
           if (srcId == coordId) {
-            pc.printf(
-                "[L3][Trader] Price negotiation failed! Matching fail, "
-                "broadcasting again. . . . . . ");
-            L3_timer_stopTimer();
             L3_action_reset(0);
             main_state = L3STATE_BROADCASTING;
           }
@@ -265,29 +281,27 @@ void L3_FSMrun(void) {
 
       // Event B(action 2). REC 메시지 수신 후, 제안에 대한 수락/거절 응답 송신
       if (waiting_loc_cnf) {
-        if (L3_event_checkEventFlag(L3_event_userAccept)) {
-          // 사용자가 위치를 수락한 경우
-          waiting_loc_cnf = 0;      // 사용자 대기 플래그 끄기
-          L3_action_sendLocCnf(1);  // coordinator에게 수락(1) CNF 전송
-          L3_event_clearEventFlag(L3_event_userAccept);  // 이벤트 플래그 끄기
-          L3_timer_startTimer(L3_MCH_TIMEOUT);
-          main_state = L3STATE_WAIT_LOC_MCH;
+        if (L3_event_checkEventFlag(L3_event_userAccept) ||
+            L3_event_checkEventFlag(L3_event_userReject)) {
+          // 수락 이벤트가 켜져 있으면 1, 아니면 0
+          uint8_t accept_flag =
+              L3_event_checkEventFlag(L3_event_userAccept) ? 1 : 0;
 
-        } else if (L3_event_checkEventFlag(L3_event_userReject)) {
-          // 사용자가 위치를 거절한 경우
-          waiting_loc_cnf = 0;
-          L3_action_sendLocCnf(0);
-          L3_action_reset(0);
+          debug_if(DBGMSG_L3, "[L3] coord으로 CNF 전송 완료");
+          L3_action_sendLocCnf(accept_flag);
+
+          L3_event_clearEventFlag(L3_event_userAccept);
           L3_event_clearEventFlag(L3_event_userReject);
-          main_state = L3STATE_BROADCASTING;
         }
+
+        waiting_loc_cnf = 0;                  // 사용자 대기 플래그 끄기
+        L3_timer_startTimer(L3_MCH_TIMEOUT);  // 3번 MCH 대기 타이머 동작
+
+        main_state = L3STATE_WAIT_LOC_MCH;
       }
       // D. timeout 난 경우
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        pc.printf("No match from coordinator %i... Waiting for pair again",
-                  coordId);
-        L3_timer_stopTimer();
-        L3_action_reset(0);
+        L3_action_reset(-1);
         main_state = L3STATE_BROADCASTING;
       }
       break;
@@ -303,7 +317,7 @@ void L3_FSMrun(void) {
           debug_if(DBGMSG_L3, "[L3] MCH received from %i\n", srcId);
           // coordinator가 보낸 MCH 인지 확인
           if (srcId == coordId) {
-            L3_timer_stopTimer();                     // MCH 대기 타이머 정지
+            L3_timer_stopTimer();                     // 3번 MCH 타이머 정지
             uint8_t success = L3_msg_decodeMch(msg);  // 매칭 성공 여부 추출
             L3_action_reset(success);
             main_state = L3STATE_BROADCASTING;
@@ -320,8 +334,7 @@ void L3_FSMrun(void) {
       }
       // Event D. timeout 난 경우
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        L3_timer_stopTimer();  // MCH 대기 타이머 정지
-        L3_action_reset(0);
+        L3_action_reset(-1);
         main_state = L3STATE_BROADCASTING;
       }
       break;
