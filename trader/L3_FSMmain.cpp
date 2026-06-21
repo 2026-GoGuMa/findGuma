@@ -158,7 +158,7 @@ void L3_FSMrun(void) {
         static uint32_t ignore_log_cnt = 0;
 
         // 500만 번 루프 돌 때 1번만 로그 출력 (숫자는 속도에 맞게 조절)
-        if (ignore_log_cnt++ % log_loop_cnt * 5 == 0) {
+        if (ignore_log_cnt++ % (log_loop_cnt * 5) == 0) {
           debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . , 현재 SEQ_NUM: %i\n",
                    seq_num);
           pc.printf("중개자에게 거래 정보를 전송하는 중입니다. . . . .");
