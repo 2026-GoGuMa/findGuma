@@ -39,6 +39,9 @@ static bool cnf_m_accpt = false;
 // serial port interface
 static Serial pc(USBTX, USBRX);
 
+// 로그 관련
+static uint8_t log_loop_cnt = 100000;
+
 // c1. 신호 조건 검사 함수 (RSSI 기반)
 static uint8_t L3_signalConditionPassed(int16_t rssi) {
   return rssi >= L3_MIN_RSSI;
@@ -86,10 +89,6 @@ static uint8_t L3_getNextSeqNum(uint8_t id) {
 static void L3_storeTxn(L3_txnInfo_t* txnInfo) {
   pendingTxn = *txnInfo;
   hasPendingTxn = true;
-
-  debug_if(DBGMSG_L3, "[L3] stored TXN id:%i seller:%i goods:%i price:%i\n",
-           pendingTxn.id, pendingTxn.isSeller, pendingTxn.goods,
-           pendingTxn.price);
 }
 
 // action 3-1: Trader에게 PRICE REC 메시지 보내는 함수
@@ -145,6 +144,10 @@ void L3_resetAll() {
   L3_event_clearAllEventFlag();
 }
 
+const char* L3_returnTraderRole(uint8_t isSeller) {
+  return (isSeller == 1) ? "판매자" : "구매자";
+}
+
 void L3_initFSM() { L3_resetAll(); }
 
 void L3_FSMrun(void) {
@@ -171,6 +174,16 @@ void L3_FSMrun(void) {
             // c1. 신호 세기 확인
             if (L3_signalConditionPassed(txnInfo.signal)) {
               L3_storeTxn(&txnInfo);
+
+              // 품목 번호가 배열 사이즈(4)를 넘어가면 안전하게 0번 출력
+              uint8_t g_idx = (pendingTxn.goods < 4) ? pendingTxn.goods : 0;
+              pc.printf(
+                  "저장된 거래자 %s: %i\n"  // %s(판매자/구매자), %i(아이디)
+                  "  - 거래 품목: %s\n"     // %s(품목명)
+                  "  - 가격($): %i\n",      // %i(가격)
+                  L3_returnTraderRole(pendingTxn.isSeller), pendingTxn.id,
+                  goods_name[g_idx], pendingTxn.price);
+
               // debug_if(DBGMSG_L3, "[L3] 현재 SEQ_NUM: %i\n",
               // seqNum[txnInfo.id]);
               L3_sendWaitPair(txnInfo.id);
@@ -193,6 +206,10 @@ void L3_FSMrun(void) {
         }
         L3_event_clearEventFlag(L3_event_msgRcvd);
       }
+      if (L3_event_checkEventFlag(L3_event_timeout)) {
+        debug_if(DBGMSG_L3, "[L3] invalid timeout occured in IDLE state\n");
+        L3_event_clearEventFlag(L3_event_timeout);
+      }
       break;
 
     case L3STATE_WAIT_PAIR:
@@ -200,6 +217,7 @@ void L3_FSMrun(void) {
         if (!hasPendingTxn) {
           // 원래 대기 중이어야 할 첫 TXN이 없다면 상태가 꼬인 것이므로
           // 안전하게 IDLE로 되돌린다.
+          pc.printf("거래자 탐색을 재시작합니다!\n");
           debug_if(DBGMSG_L3,
                    "[L3][WARNING] WAIT_PAIR has no pending TXN, reset to "
                    "IDLE\n");
@@ -213,18 +231,17 @@ void L3_FSMrun(void) {
         uint8_t* msg = L3_LLI_getMsgPtr();
         uint8_t size = L3_LLI_getSize();
 
+        // 같은 trader가 같은 요청을 다시 보낸 경우는 중복으로 보고 무시
         if (L3_LLI_getSrcId() == pendingTxn.id) {
-          // 같은 trader가 같은 요청을 다시 보낸 경우는 중복으로 보고 무시
           // 정적 변수로 카운터 선언 (함수가 끝나도 값이 유지됨)
           static uint32_t ignore_log_cnt = 0;
 
-          // 10만 번 루프 돌 때 1번만 로그 출력 (숫자는 속도에 맞게 조절)
-          if (ignore_log_cnt++ % 100000 == 0)
+          // {log_loop_cnt}번 루프 돌 때 1번만 로그 출력
+          if (ignore_log_cnt++ % log_loop_cnt == 0)
             debug_if(
                 DBGMSG_L3,
                 "[L3] duplicated TXN from trader %i ignored in WAIT_PAIR\n",
                 pendingTxn.id);
-          L3_event_clearEventFlag(L3_event_msgRcvd);
           break;
         }
 
@@ -245,14 +262,13 @@ void L3_FSMrun(void) {
             // c2. 두 trader의 상보성 조건 검사 (seller/buyer 조합, goods 일치)
             else if (L3_pairConditionPassed(&pendingTxn, &txnInfo)) {
               L3_timer_stopTimer();
-              debug_if(DBGMSG_L3,
-                       "[L3] pair candidate found: trader %i <-> trader %i\n",
-                       pendingTxn.id, txnInfo.id);
+              // debug_if(DBGMSG_L3,
+              //          "[L3] pair candidate found: trader %i <-> trader
+              //          %i\n", pendingTxn.id, txnInfo.id);
 
               // 두 Trader 간의 재시도 횟수(조건 c4, c5)
               uint8_t try_cnt =
                   L3_getTraderPairRetryCnt(pendingTxn.id, txnInfo.id);
-
               // !c4, !c5. 재시도 횟수 초과 시 WAIT_PAIR 복귀
               if (try_cnt >= L3_MAX_RETRY) {
                 debug_if(
@@ -264,6 +280,18 @@ void L3_FSMrun(void) {
               // c4, c5 만족 시
               else {
                 matchingTxn = txnInfo;
+                pc.printf(
+                    "페어 후보가 지정되었습니다! [ID %i] %s <-> [ID %i] %s\n"
+                    "\n======================\n"
+                    "  > [ID %i] %s 제시가격: %i$\n  > [ID %i] %s 제시가격: "
+                    "%i$"
+                    "\n======================\n: ",
+                    pendingTxn.id, L3_returnTraderRole(pendingTxn.isSeller),
+                    matchingTxn.id, L3_returnTraderRole(matchingTxn.isSeller),
+                    pendingTxn.id, L3_returnTraderRole(pendingTxn.isSeller),
+                    pendingTxn.price, matchingTxn.id,
+                    L3_returnTraderRole(matchingTxn.isSeller),
+                    matchingTxn.price);
 
                 // action 8: 두 번째로 매칭된 trader에게 WAIT_PAIR 전송
                 L3_sendWaitPair(matchingTxn.id);
@@ -274,6 +302,8 @@ void L3_FSMrun(void) {
 
                 // action 3: Send REC
                 avg_price = (pendingTxn.price + matchingTxn.price) / 2;
+                pc.printf("=> 중개 가격: %i$\n", avg_price);
+
                 L3_sendRecPrice(pendingTxn.id, avg_price);
                 L3_sendRecPrice(matchingTxn.id, avg_price);
 
@@ -299,13 +329,21 @@ void L3_FSMrun(void) {
 
         // msgRcvd 이벤트는 이번 수신 패킷에 대한 처리가 끝났으므로 지운다.
         L3_event_clearEventFlag(L3_event_msgRcvd);
-      } else if (L3_event_checkEventFlag(L3_event_timeout)) {
-        // 이벤트 D: Pair timeout 발생 시 IDLE 복귀
+      }
+      // 이벤트 D: Pair timeout 발생 시 IDLE 복귀
+      if (L3_event_checkEventFlag(L3_event_timeout)) {
         L3_event_clearEventFlag(L3_event_timeout);
-        debug_if(DBGMSG_L3, "[L3] timeout event in WAIT_PAIR, reset to IDLE\n");
+        // debug_if(DBGMSG_L3, "[L3] timeout event in WAIT_PAIR, reset to
+        // IDLE\n");
+        pc.printf(
+            "[ID %i] %s의 페어 탐색에 실패했습니다. (%i초 페어 탐색 시간 "
+            "초과)\n",
+            pendingTxn.id, L3_returnTraderRole(pendingTxn.isSeller),
+            L3_PAIR_TIMEOUT);
 
         // 새로운 PDU를 보내는 로직 추가 필요
         L3_resetAll();
+        pc.printf("거래자 탐색을 재시작합니다!\n");
         main_state = L3STATE_IDLE;
       }
       break;
@@ -321,14 +359,22 @@ void L3_FSMrun(void) {
           debug_if(DBGMSG_L3, "[L3] Price CNF received from %i\n", srcId);
           if (srcId == pendingTxn.id) {
             cnf_p_rcvd = true;
-            if (L3_msg_getPayload(msg)[L3_CNF_OFFSET_ACCPT] == 1) {
+            uint8_t accpt = L3_msg_getPayload(msg)[L3_CNF_OFFSET_ACCPT];
+            pc.printf("> [ID %i] %s: %s\n", pendingTxn.id,
+                      L3_returnTraderRole(pendingTxn.isSeller),
+                      (accpt == 1) ? "수락" : "거절");
+            if (accpt == 1) {
               cnf_p_accpt = true;
             } else {
               cnf_p_accpt = false;
             }
           } else if (srcId == matchingTxn.id) {
             cnf_m_rcvd = true;
-            if (L3_msg_getPayload(msg)[L3_CNF_OFFSET_ACCPT] == 1) {
+            uint8_t accpt = L3_msg_getPayload(msg)[L3_CNF_OFFSET_ACCPT];
+            pc.printf("> [ID %i] %s: %s\n", matchingTxn.id,
+                      L3_returnTraderRole(matchingTxn.isSeller),
+                      (accpt == 1) ? "수락" : "거절");
+            if (accpt == 1) {
               cnf_m_accpt = true;
             } else {
               cnf_m_accpt = false;
@@ -343,10 +389,13 @@ void L3_FSMrun(void) {
           if (cnf_p_rcvd && cnf_m_rcvd) {
             // c3. 둘 다에게서 accept 받았을 경우
             if (cnf_p_accpt && cnf_m_accpt) {
-              pc.printf("[L3] Both traders accepted price %i \n", avg_price);
               pc.printf(
-                  "[L3] Sending Both traders LOC REC %i to both traders\n",
-                  AVG_LOC);
+                  "모든 거래자가 중개가격 %i$을 수락하였습니다!\n"
+                  "위치 조정을 시작합니다.\n"
+                  "중개 위치: [우편번호 %05i]",
+                  avg_price, AVG_LOC);
+              debug_if(DBGMSG_L3, "[L3] Sending Both traders LOC REC %i\n",
+                       AVG_LOC);
 
               // 양측 Trader에게 LOC REC 메시지 보내기
               L3_sendRecLoc(pendingTxn.id);
@@ -366,28 +415,36 @@ void L3_FSMrun(void) {
             } else {
               // !c3. 둘 중 적어도 한 명이 reject 했을 경우
               pc.printf(
-                  "[L3] CNFs received, but at least one reject, "
-                  "resetting\n");
+                  "중개가격 %i$ 협상에 실패하였습니다!\n"
+                  "거래를 무효화합니다.\n",
+                  avg_price);
+              debug_if(DBGMSG_L3,
+                       "[L3] Sending Both traders MCH=0(fail) msg\n");
+
               // 양측 Trader에게 MCH 메시지 보내기 (reject)
               L3_sendMch(pendingTxn.id, 0);
               L3_sendMch(matchingTxn.id, 0);
 
               // reset & go to idle
               L3_resetAll();
+              pc.printf("거래자 탐색을 재시작합니다!\n");
               main_state = L3STATE_IDLE;
             }
           }
-          L3_event_clearEventFlag(L3_event_msgRcvd);
         } else {
           // CNF 메시지가 아닌 TXN 메시지나 알 수 없는 메시지가 온 경우
-          L3_event_clearEventFlag(L3_event_msgRcvd);
           // debug_if(DBGMSG_L3,
           //          "[L3] unknown PDU ignored in WAIT_PRICE_CNF state\n");
         }
+        L3_event_clearEventFlag(L3_event_msgRcvd);
       }
       // Event D. CNF 송신 timeout
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        pc.printf("[L3] CNF timeout occurred, dropping both traders\n");
+        pc.printf(
+            "수락 메시지가 %i초 내에 오지 않았습니다!\n"
+            "거래를 무효화합니다.\n",
+            L3_CNF_TIMEOUT);
+        debug_if(DBGMSG_L3, "[L3] Sending Both traders MCH=0(fail) msg\n");
 
         // 양측 Trader에게 MCH 메시지 보내기 (reject)
         L3_sendMch(pendingTxn.id, 0);
@@ -396,6 +453,7 @@ void L3_FSMrun(void) {
         L3_event_clearEventFlag(L3_event_timeout);
         // reset & go to idle
         L3_resetAll();
+        pc.printf("거래자 탐색을 재시작합니다!\n");
         main_state = L3STATE_IDLE;
       }
       break;
@@ -411,14 +469,22 @@ void L3_FSMrun(void) {
           debug_if(DBGMSG_L3, "[L3] Location CNF received from %i\n", srcId);
           if (srcId == pendingTxn.id) {
             cnf_p_rcvd = true;
-            if (L3_msg_getPayload(msg)[L3_CNF_OFFSET_ACCPT] == 1) {
+            uint8_t accpt = L3_msg_getPayload(msg)[L3_CNF_OFFSET_ACCPT];
+            pc.printf("> [ID %i] %s: %s\n", pendingTxn.id,
+                      L3_returnTraderRole(pendingTxn.isSeller),
+                      (accpt == 1) ? "수락" : "거절");
+            if (accpt == 1) {
               cnf_p_accpt = true;
             } else {
               cnf_p_accpt = false;
             }
           } else if (srcId == matchingTxn.id) {
             cnf_m_rcvd = true;
-            if (L3_msg_getPayload(msg)[L3_CNF_OFFSET_ACCPT] == 1) {
+            uint8_t accpt = L3_msg_getPayload(msg)[L3_CNF_OFFSET_ACCPT];
+            pc.printf("> [ID %i] %s: %s\n", matchingTxn.id,
+                      L3_returnTraderRole(matchingTxn.isSeller),
+                      (accpt == 1) ? "수락" : "거절");
+            if (accpt == 1) {
               cnf_m_accpt = true;
             } else {
               cnf_m_accpt = false;
@@ -433,55 +499,63 @@ void L3_FSMrun(void) {
           if (cnf_p_rcvd && cnf_m_rcvd) {
             // c3. 둘 다에게서 accept 받았을 경우
             if (cnf_p_accpt && cnf_m_accpt) {
-              pc.printf("[L3] Both traders accepted LOC %i \n", AVG_LOC);
               pc.printf(
-                  "[L3] Sending Both traders LOC REC %i to both traders\n",
-                  AVG_LOC);
-
+                  "모든 거래자가 중개 위치 [우편번호 %05i]을 수락하였습니다!\n"
+                  "[ID %i] %s와 [ID %i] %s의 거래가 성사되었습니다!\n",
+                  AVG_LOC, pendingTxn.id,
+                  L3_returnTraderRole(pendingTxn.isSeller), matchingTxn.id,
+                  L3_returnTraderRole(matchingTxn.isSeller));
+              debug_if(DBGMSG_L3,
+                       "[L3] Sending Both traders MCH=1(success) msg\n");
               // 양측 Trader에게 MCH 메시지 보내기 (success)
               L3_sendMch(pendingTxn.id, 1);
               L3_sendMch(matchingTxn.id, 1);
 
               // reset & go to idle
-              pc.printf(
-                  "[L3] Transaction between %i & %i completed "
-                  "successfully!\n",
-                  pendingTxn.id, matchingTxn.id);
               L3_resetAll();
+              pc.printf("거래자 탐색을 재시작합니다!\n");
               main_state = L3STATE_IDLE;
             } else {
               // !c3. 둘 중 적어도 한 명이 reject 했을 경우
               pc.printf(
-                  "[L3] CNFs received, but at least one reject, "
-                  "resetting\n");
+                  "중개 위치 [우편번호 %05i] 협상에 실패하였습니다!\n"
+                  "거래를 무효화합니다.\n",
+                  AVG_LOC);
               // 양측 Trader에게 MCH 메시지 보내기 (reject)
+              debug_if(DBGMSG_L3,
+                       "[L3] Sending Both traders MCH=0(fail) msg\n");
               L3_sendMch(pendingTxn.id, 0);
               L3_sendMch(matchingTxn.id, 0);
 
               // reset & go to idle
               L3_resetAll();
+              pc.printf("거래자 탐색을 재시작합니다!\n");
               main_state = L3STATE_IDLE;
             }
           }
-          L3_event_clearEventFlag(L3_event_msgRcvd);
         } else {
           // CNF 메시지가 아닌 TXN 메시지나 알 수 없는 메시지가 온 경우
-          L3_event_clearEventFlag(L3_event_msgRcvd);
           // debug_if(DBGMSG_L3,
           //          "[L3] unknown PDU ignored in WAIT_LOC_CNF state\n");
         }
+        L3_event_clearEventFlag(L3_event_msgRcvd);
       }
       // Event D. CNF 송신 timeout
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        pc.printf("[L3] CNF timeout occurred, dropping both traders\n");
+        pc.printf(
+            "수락 메시지가 %i초 내에 오지 않았습니다!\n"
+            "거래를 무효화합니다.\n",
+            L3_CNF_TIMEOUT);
 
         // 양측 Trader에게 MCH 메시지 보내기 (reject)
+        debug_if(DBGMSG_L3, "[L3] Sending Both traders MCH=0(fail) msg\n");
         L3_sendMch(pendingTxn.id, 0);
         L3_sendMch(matchingTxn.id, 0);
 
         L3_event_clearEventFlag(L3_event_timeout);
         // reset & go to idle
         L3_resetAll();
+        pc.printf("거래자 탐색을 재시작합니다!\n");
         main_state = L3STATE_IDLE;
       }
       break;
