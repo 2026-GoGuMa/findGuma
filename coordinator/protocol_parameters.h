@@ -22,7 +22,6 @@
 #define L3_MAX_SEQNUM 256
 
 // ================== 서비스 로직 관련 ==================
-// 1. 상품 품목
 #define SWTPOTATO 1
 #define POTATO 2
 #define CORN 3

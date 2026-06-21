@@ -206,6 +206,7 @@ void L3_FSMrun(void) {
         }
         L3_event_clearEventFlag(L3_event_msgRcvd);
       }
+      // 발생할 리 없는 Timeout이 발생했을 때
       if (L3_event_checkEventFlag(L3_event_timeout)) {
         debug_if(DBGMSG_L3, "[L3] invalid timeout occured in IDLE state\n");
         L3_event_clearEventFlag(L3_event_timeout);
@@ -340,6 +341,11 @@ void L3_FSMrun(void) {
             "초과)\n",
             pendingTxn.id, L3_returnTraderRole(pendingTxn.isSeller),
             L3_PAIR_TIMEOUT);
+        if (hasPendingTxn) {
+          L3_sendMch(pendingTxn.id, 0);
+          debug_if(DBGMSG_L3, "[L3] Sending trader %i MCH=0(fail) msg\n",
+                   pendingTxn.id);
+        }
 
         // 새로운 PDU를 보내는 로직 추가 필요
         L3_resetAll();

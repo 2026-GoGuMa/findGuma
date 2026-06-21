@@ -144,8 +144,8 @@ void L3_FSMrun(void) {
         // 정적 변수로 카운터 선언 (함수가 끝나도 값이 유지됨)
         static uint32_t ignore_log_cnt = 0;
 
-        // 100만 번 루프 돌 때 1번만 로그 출력 (숫자는 속도에 맞게 조절)
-        if (ignore_log_cnt++ % 1000000 == 0) {
+        // 500만 번 루프 돌 때 1번만 로그 출력 (숫자는 속도에 맞게 조절)
+        if (ignore_log_cnt++ % 5000000 == 0) {
           debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . , 현재 SEQ_NUM: %i\n",
                    seq_num);
           L3_action_sendTxn();
@@ -162,17 +162,23 @@ void L3_FSMrun(void) {
 
         // Coordinator 가 보낸 REC 인지 확인
         if (L3_msg_checkIfRec(msg, size)) {
-          debug_if(DBGMSG_L3, "[L3] Price REC received from coordinator");
-
           // coordinator로 부터 REC가 오면 가격 추출하고 사용자 입력 대기 시작
           if (srcId == coordId) {
+            debug_if(DBGMSG_L3, "[L3] Price REC received from coordinator");
             L3_timer_stopTimer();                    // REC 대기 타이머 정지
             rcvd_avg_price = L3_msg_decodeRec(msg);  // 메시지에서 가격 추출
             pc.printf("[L3][Trader] avg_price=%u. Accept? (1=yes / 0=no): ",
                       rcvd_avg_price);
             waiting_price_cnf = 1;  // 사용자 입력 대기 중
           } else {
-            debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
+            debug_if(DBGMSG_L3, "[L3] Price REC Not from coordinator: %i \n",
+                     srcId);
+          }
+        } else if (L3_msg_checkIfMch(msg, size)) {
+          if (srcId == coordId) {
+            debug_if(DBGMSG_L3, "[L3] Mch received from coordinator");
+            pc.printf("페어 매칭이 실패했습니다.\n");
+            main_state = L3STATE_BROADCASTING;
           }
         } else {
           // coordinator 로부터 받은 메시지가 REC 타입이 아닐 경우 (WAIT_PAIR,
@@ -228,8 +234,11 @@ void L3_FSMrun(void) {
           if (srcId == coordId) {
             L3_timer_stopTimer();                  // REC 대기 타이머 정지
             rcvd_avg_loc = L3_msg_decodeRec(msg);  // 메시지에서 위치 추출
-            pc.printf("[L3][Trader] avg_loc=%u. Accept? (1=yes / 0=no): ",
-                      rcvd_avg_loc);
+            pc.printf(
+                "거래자와 만날 중간 위치는 우편번호 %05u 입니다. 거래를 "
+                "수락하시겠습니까?\n===========\n"
+                "  > 1=yes          \n  > 0=no           \n===========\n: ",
+                rcvd_avg_loc);
             waiting_loc_cnf = 1;  // 사용자 입력 대기 중
           } else {
             debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
