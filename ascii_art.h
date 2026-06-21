@@ -53,7 +53,9 @@ static inline void log_box(Serial* pc, const char* fmt, ...) {
 // print_startup_banner: 시스템 최초 기동 시 한 번만 호출
 // ============================================================
 static inline void print_startup_banner(Serial* pc) {
-    pc->printf("\n");
+    pc->printf("\n--- [ SWEET POTATO SYSTEM STARTUP ] ---\n");
+    
+    // 1. 고구마 본체 아스키 아트 출력
     pc->printf("                                      \xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88                          \n");
     pc->printf("                                  \xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88                      \n");
     pc->printf("                              \xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x88\xE2\x96\x88                    \n");
@@ -78,7 +80,40 @@ static inline void print_startup_banner(Serial* pc) {
     pc->printf("                            \xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88                  \n");
     pc->printf("                                \xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x92\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88                      \n");
     pc->printf("                                    \xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88                          \n");
+    
     pc->printf("\n");
+    
+    // 2. 대형 "GOGUMA" 텍스트 로고 출력
+    pc->printf("           ____   ____   ____ _   _ __  __    _     \n");
+    pc->printf("          / ___| / __ \\ / ___| | | |  \\/  |  / \\    \n");
+    pc->printf("         | |  _ | |  | | |  _  | | | | |\\/| | / _ \\   \n");
+    pc->printf("         | |_| || |__| | |_| | |_| | |  | |/ ___ \\  \n");
+    pc->printf("          \\____| \\____/ \\____|\\___/|_|  |_/_/   \\_\\ \n");
+
+    pc->printf("\n                  BY DEVELOPERS:\n");
+
+    // 3. MINSEO (s! 완벽 제거 대문자) + Chaeil + Hyunchin 로고 출력
+    // 문자열 내 깨짐을 일으키는 단일 역슬래시(\) 가닥들을 모두 이중 에스케이프(\\) 처리하였습니다.
+    pc->printf("    __  __ ___ _   _ ____  _____  ___   \n");
+    pc->printf("   |  \\/  |_ _| \\ | / ___|| ____|/ _ \\  \n");
+    pc->printf("   | |\\/| | | ||  \\| \\___ \\|  _|| | | | \n");
+    pc->printf("   | |  | | | || |\\  |___) | |__| |_| | \n");
+    pc->printf("   |_|  |_|___|_| \\_|____/|_____|\\___/  \n");
+    pc->printf("                                                          \n");
+    pc->printf("      ____ _                _ _                           \n");
+    pc->printf("     / ___| |__   __ _  ___(_) |                          \n");
+    pc->printf("    | |   | '_ \\ / _` |/ _ \\ | |                          \n");
+    pc->printf("    | |___| | | | (_| |  __/ | |___                       \n");
+    pc->printf("     \\____|_| |_|\\__,_|\\___|_|_____|                      \n");
+    pc->printf("                                                          \n");
+    pc->printf("     _   _                       _     _                  \n");
+    pc->printf("    | | | |_   _ _   _ _ __   ___| |__ (_)_ __            \n");
+    pc->printf("    | |_| | | | | | | | '_ \\ / __| '_ \\| | '_ \\           \n");
+    pc->printf("    |  _  | |_| | |_| | | | | (__| | | | | | | |          \n");
+    pc->printf("    |_| |_|\\__, |\\__,_|_| |_|\\___|_| |_|_|_| |_|          \n");
+    pc->printf("           |___/                                          \n");
+
+    pc->printf("----------------------------------------------------------------------------\n");
     pc->printf("========== GoGuMa Trading System - Capstone 2026 ==========\n");
     pc->printf("\n");
 }
