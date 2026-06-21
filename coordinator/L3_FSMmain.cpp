@@ -4,6 +4,7 @@
 #include "L3_timer.h"
 #include "mbed.h"
 #include "protocol_parameters.h"
+#include "../ascii_art.h"
 
 // FSM state -------------------------------------------------
 #define L3STATE_IDLE 0
@@ -343,10 +344,8 @@ void L3_FSMrun(void) {
           if (cnf_p_rcvd && cnf_m_rcvd) {
             // c3. 둘 다에게서 accept 받았을 경우
             if (cnf_p_accpt && cnf_m_accpt) {
-              pc.printf("[L3] Both traders accepted price %i \n", avg_price);
-              pc.printf(
-                  "[L3] Sending Both traders LOC REC %i to both traders\n",
-                  AVG_LOC);
+              log_box(&pc, "[L3] Both traders accepted price %i", avg_price);
+              log_box(&pc, "[L3] Sending Both traders LOC REC %i to both traders", AVG_LOC);
 
               // 양측 Trader에게 LOC REC 메시지 보내기
               L3_sendRecLoc(pendingTxn.id);
@@ -365,9 +364,7 @@ void L3_FSMrun(void) {
               main_state = L3STATE_WAIT_LOC_CNF;
             } else {
               // !c3. 둘 중 적어도 한 명이 reject 했을 경우
-              pc.printf(
-                  "[L3] CNFs received, but at least one reject, "
-                  "resetting\n");
+              log_box(&pc, "[L3] CNFs received, but at least one reject, resetting");
               // 양측 Trader에게 MCH 메시지 보내기 (reject)
               L3_sendMch(pendingTxn.id, 0);
               L3_sendMch(matchingTxn.id, 0);
@@ -387,7 +384,7 @@ void L3_FSMrun(void) {
       }
       // Event D. CNF 송신 timeout
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        pc.printf("[L3] CNF timeout occurred, dropping both traders\n");
+        log_box(&pc, "[L3] CNF timeout occurred, dropping both traders");
 
         // 양측 Trader에게 MCH 메시지 보내기 (reject)
         L3_sendMch(pendingTxn.id, 0);
@@ -433,27 +430,20 @@ void L3_FSMrun(void) {
           if (cnf_p_rcvd && cnf_m_rcvd) {
             // c3. 둘 다에게서 accept 받았을 경우
             if (cnf_p_accpt && cnf_m_accpt) {
-              pc.printf("[L3] Both traders accepted LOC %i \n", AVG_LOC);
-              pc.printf(
-                  "[L3] Sending Both traders LOC REC %i to both traders\n",
-                  AVG_LOC);
+              log_box(&pc, "[L3] Both traders accepted LOC %i", AVG_LOC);
+              log_box(&pc, "[L3] Sending Both traders LOC REC %i to both traders", AVG_LOC);
 
               // 양측 Trader에게 MCH 메시지 보내기 (success)
               L3_sendMch(pendingTxn.id, 1);
               L3_sendMch(matchingTxn.id, 1);
 
               // reset & go to idle
-              pc.printf(
-                  "[L3] Transaction between %i & %i completed "
-                  "successfully!\n",
-                  pendingTxn.id, matchingTxn.id);
+              log_box(&pc, "[L3] Transaction between %i & %i completed successfully!", pendingTxn.id, matchingTxn.id);
               L3_resetAll();
               main_state = L3STATE_IDLE;
             } else {
               // !c3. 둘 중 적어도 한 명이 reject 했을 경우
-              pc.printf(
-                  "[L3] CNFs received, but at least one reject, "
-                  "resetting\n");
+              log_box(&pc, "[L3] CNFs received, but at least one reject, resetting");
               // 양측 Trader에게 MCH 메시지 보내기 (reject)
               L3_sendMch(pendingTxn.id, 0);
               L3_sendMch(matchingTxn.id, 0);
@@ -473,7 +463,7 @@ void L3_FSMrun(void) {
       }
       // Event D. CNF 송신 timeout
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        pc.printf("[L3] CNF timeout occurred, dropping both traders\n");
+        log_box(&pc, "[L3] CNF timeout occurred, dropping both traders");
 
         // 양측 Trader에게 MCH 메시지 보내기 (reject)
         L3_sendMch(pendingTxn.id, 0);

@@ -4,6 +4,7 @@
 #include "mbed.h"
 #include "protocol_parameters.h"
 #include "string.h"
+#include "../ascii_art.h"
 
 // serial port interface
 Serial pc(USBTX, USBRX);
@@ -20,8 +21,7 @@ void onSerialRx(void) {
 }
 
 int main(void) {
-  pc.printf(
-      "------------------ protocol stack starts! --------------------------\n");
+  print_startup_banner(&pc);
 
   // 아이디 세팅
   pc.printf(":: ID for this node : ");
@@ -43,9 +43,9 @@ int main(void) {
   pc.getc();
 
   // ?낅젰媛??뺤씤 異쒕젰
-  pc.printf("Trader id=%u  coord=%u  isSeller=%u  goods=%u  price=$%u\n",
-            input_thisId, L3_COORDINATOR_ID, input_isSeller, input_goods,
-            input_price);
+  log_box(&pc, "Trader id=%u  coord=%u  isSeller=%u  goods=%u  price=$%u",
+          input_thisId, L3_COORDINATOR_ID, input_isSeller, input_goods,
+          input_price);
 
   // FSM 초기화
   L2_initFSM(input_thisId, L3_COORDINATOR_ID);
