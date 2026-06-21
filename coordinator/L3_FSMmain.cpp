@@ -171,16 +171,19 @@ void L3_FSMrun(void) {
             // c1. 신호 세기 확인
             if (L3_signalConditionPassed(txnInfo.signal)) {
               L3_storeTxn(&txnInfo);
-              debug_if(DBGMSG_L3, "[L3] 현재 SEQ_NUM: %i", seqNum[txnInfo.id]);
+              // debug_if(DBGMSG_L3, "[L3] 현재 SEQ_NUM: %i\n",
+              // seqNum[txnInfo.id]);
               L3_sendWaitPair(txnInfo.id);
               L3_timer_startTimer(L3_PAIR_TIMEOUT);
               main_state = L3STATE_WAIT_PAIR;
+              debug_if(DBGMSG_L3, "[L3] 현재 %i의 SEQ_NUM: %i\n", txnInfo.id,
+                       seqNum[txnInfo.id]);
             } else {
               debug_if(DBGMSG_L3,
                        "[L3] TXN ignored, RSSI %i is lower than minimum %i\n",
                        txnInfo.signal, L3_MIN_RSSI);
             }
-            // 크기가 0인 TXN
+          } else {  // 크기가 0인 TXN
             debug_if(DBGMSG_L3, "[L3] invalid TXN received in IDLE state\n");
           }
         } else if (L3_msg_checkIfCnf(msg, size)) {
@@ -211,11 +214,18 @@ void L3_FSMrun(void) {
         uint8_t size = L3_LLI_getSize();
 
         if (L3_LLI_getSrcId() == pendingTxn.id) {
-          // 같은 trader가 같은 요청을 다시 보낸 경우는 중복으로 보고
-          // 무시한다.
-          // debug_if(DBGMSG_L3,
-          //          "[L3] duplicated TXN from trader %i ignored in
-          //          WAIT_PAIR\n", pendingTxn.id);
+          // 같은 trader가 같은 요청을 다시 보낸 경우는 중복으로 보고 무시
+          // 정적 변수로 카운터 선언 (함수가 끝나도 값이 유지됨)
+          static uint32_t ignore_log_cnt = 0;
+
+          // 10만 번 루프 돌 때 1번만 로그 출력 (숫자는 속도에 맞게 조절)
+          if (ignore_log_cnt++ % 100000 == 0)
+            debug_if(
+                DBGMSG_L3,
+                "[L3] duplicated TXN from trader %i ignored in WAIT_PAIR\n",
+                pendingTxn.id);
+          L3_event_clearEventFlag(L3_event_msgRcvd);
+          break;
         }
 
         // Event A. TXN 수신 - 메시지가 TXN이라면 내용을 꺼내서 TXNinfo에 담음
@@ -256,9 +266,11 @@ void L3_FSMrun(void) {
                 matchingTxn = txnInfo;
 
                 // action 8: 두 번째로 매칭된 trader에게 WAIT_PAIR 전송
-                // (matchingTxn이 BROADCASTING → WAIT_PRICE_REC로 전환할 시간
-                // 확보)
                 L3_sendWaitPair(matchingTxn.id);
+                debug_if(DBGMSG_L3,
+                         "[L3] WAIT_PAIR sent to matching trader %i, "
+                         "waiting for send CNF\n",
+                         matchingTxn.id);
 
                 // action 3: Send REC
                 avg_price = (pendingTxn.price + matchingTxn.price) / 2;

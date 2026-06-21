@@ -1,9 +1,20 @@
+#include <deque>
+#include <iostream>
+#include <vector>
+
 #include "L2_FSMevent.h"
 #include "L2_LLinterface.h"
 #include "L2_msg.h"
 #include "L2_timer.h"
 #include "L3_LLinterface.h"
 #include "protocol_parameters.h"
+using namespace std;
+
+struct TxItem {
+  uint8_t destId;
+  vector<uint8_t> data;
+  uint8_t isEnd;  // 1: 원본 메시지 마지막 조각, 0: 아직 뒤에 조각 더 있음.
+};
 
 // FSM state -------------------------------------------------
 #define L2STATE_IDLE 0
@@ -13,6 +24,7 @@
 #endif
 
 #define SDUBUFFER_SIZE 1024
+#define SDU_MAX_AMOUNT 10
 
 // state variables
 static uint8_t main_state = L2STATE_IDLE;  // protocol state
@@ -23,9 +35,6 @@ static uint8_t myL2ID = 1;
 static uint8_t destL2ID = 0;
 
 // L2 PDU context/size
-static uint8_t sduBuffer[SDUBUFFER_SIZE];
-static uint8_t sduBufferSize;
-
 static uint8_t arqPdu[200];
 static uint8_t sduIn[200];
 static uint8_t pduSize;
@@ -33,6 +42,10 @@ static uint8_t sduLen;
 
 static uint8_t pduBuffer[SDUBUFFER_SIZE];
 static uint8_t pduBufferSize;
+
+deque<TxItem> txQueue;
+uint8_t current_isEnd = 0;  // 현재 pdu가 마지막 조각인지
+
 // ARQ parameters -------------------------------------------------------------
 static uint8_t seqNum[MAX_TRADERID] = {0};  // ARQ sequence number
 #ifndef DISABLE_ARQ
@@ -61,52 +74,21 @@ uint8_t L2_configDestId(uint8_t destId) {
   return 0;
 }
 
-int L2_pullSduBuffer(uint8_t size) {
-  int res;
-
-  if (size > sduBufferSize) {
-    debug_if(DBGMSG_L2,
-             "[L2][WARNING] sdu buffer size (%i) is less than request size "
-             "(%i), truncating the requested size...\n",
-             sduBufferSize, size);
-    size = sduBufferSize;
-  }
-
-  memcpy(sduIn, sduBuffer, size);
-  sduLen = size;
-
-  sduBufferSize -= size;
-  if (sduBufferSize > 0) {
-    memcpy(sduBuffer, sduBuffer + size, sduBufferSize);
-    res = 1;
-  } else
-    res = 0;
-
-  return res;
-}
-
-void L2_LLI_handleDataReq(uint8_t* sdu, uint8_t len, uint8_t destId) {
-  if (L2_configDestId(destId) == 1 &&
-      L2_event_checkEventFlag(L2_event_dataToSendBuffer)) {
-    debug_if(DBGMSG_L2,
-             "[L2] Failed to handle DATA_REQ (dest ID is invalid or data TX is "
-             "in progress...(SDU flag : %i)\n",
-             L2_event_checkEventFlag(L2_event_dataToSendBuffer));
+void L2_LLI_enqueueDataReq(uint8_t* sdu, uint8_t len, uint8_t destId) {
+  if (L2_configDestId(destId) == 1) {
+    debug_if(DBGMSG_L3,
+             "[L3] Failed to handle DATA_REQ (dest ID is invalid))\n");
     return;
   }
-
-  if (len < L2_MSG_MAXDATASIZE) {
-    memcpy(sduIn, sdu, len);
-    sduLen = len;
-  } else {
-    memcpy(sduBuffer, sdu, len);
-    sduBufferSize = len;
-
-    L2_pullSduBuffer(L2_MSG_MAXDATASIZE);
-    L2_event_setEventFlag(L2_event_dataToSendBuffer);
-  }
-
-  L2_event_setEventFlag(L2_event_dataToSend);
+  if (txQueue.size() <= SDU_MAX_AMOUNT) {
+    txQueue.push_back(
+        {destId, vector<uint8_t>(sdu, sdu + len),
+         1});  // 새 PDU는 기본적으로 마지막 조각(1) 마킹해서 넣는다.
+  } else
+    debug_if(DBGMSG_L3,
+             "[L3] Tx Queue is Full! (currently %i msgs in queue) Dropping "
+             "packet for %i\n",
+             txQueue.size(), destId);
 }
 
 void L2_LLI_reconfigSrcId(uint8_t myId) {
@@ -123,7 +105,7 @@ void L2_initFSM(uint8_t myId) {
   L2_validityCheck_ID(destL2ID);
 
   L2_LLI_initLowLayer(myL2ID);
-  L3_LLI_setDataReqFunc(L2_LLI_handleDataReq);
+  L3_LLI_setDataReqFunc(L2_LLI_enqueueDataReq);
   L3_LLI_setReconfigSrcIdReqFunc(L2_LLI_reconfigSrcId);
 }
 
@@ -157,10 +139,7 @@ void L2_FSMrun(void) {
   switch (main_state) {
     case L2STATE_IDLE:  // IDLE state description
 
-      if (L2_event_checkEventFlag(
-              L2_event_reconfigSrcId))  // if src id reconfiguration is
-                                        // requested
-      {
+      if (L2_event_checkEventFlag(L2_event_reconfigSrcId)) {
         int res;
         res = L2_LLI_configSrcId(reqestedId);
 
@@ -207,14 +186,36 @@ void L2_FSMrun(void) {
         }
 #endif
         L2_event_clearEventFlag(L2_event_dataRcvd);
-      } else if (L2_event_checkEventFlag(
-                     L2_event_dataToSend))  // if data needs to be sent
-                                            // (keyboard input)
+      } else if (!txQueue.empty()) {
+        TxItem item = txQueue.front();
+        txQueue.pop_front();
+
+        destL2ID = item.destId;
+        uint8_t len = item.data.size();
+        uint8_t* sdu = item.data.data();
+        uint8_t isEnd = item.isEnd;
+
+        if (len < L2_MSG_MAXDATASIZE) {
+          memcpy(sduIn, sdu, len);
+          sduLen = len;
+          current_isEnd = isEnd;
+        } else {
+          memcpy(sduIn, sdu, L2_MSG_MAXDATASIZE);
+          sduLen = L2_MSG_MAXDATASIZE;
+          current_isEnd = 0;
+
+          // 남은 SDU 조각
+          vector<uint8_t> remaining_sdu(sdu + L2_MSG_MAXDATASIZE, sdu + len);
+          txQueue.push_front({destL2ID, remaining_sdu, isEnd});
+        }
+        L2_event_setEventFlag(L2_event_dataToSend);
+      }
+      if (L2_event_checkEventFlag(
+              L2_event_dataToSend))  // if data needs to be sent
       {
         // msg header setting
-        pduSize = L2_msg_encodeData(
-            arqPdu, sduIn, seqNum[destL2ID], sduLen,
-            L2_event_checkEventFlag(L2_event_dataToSendBuffer) == 0);
+        pduSize = L2_msg_encodeData(arqPdu, sduIn, seqNum[destL2ID], sduLen,
+                                    current_isEnd);
         L2_LLI_sendData(arqPdu, pduSize, destL2ID);
 
 #ifndef DISABLE_ARQ
@@ -229,11 +230,6 @@ void L2_FSMrun(void) {
         main_state = L2STATE_TX;
 
         L2_event_clearEventFlag(L2_event_dataToSend);
-      } else if (L2_event_checkEventFlag(L2_event_dataToSendBuffer)) {
-        L2_event_setEventFlag(L2_event_dataToSend);
-
-        if (L2_pullSduBuffer(L2_MSG_MAXDATASIZE) == 0)
-          L2_event_clearEventFlag(L2_event_dataToSendBuffer);
       }
 #ifndef DISABLE_ARQ
       // ignore events (arqEvent_dataTxDone, arqEvent_ackTxDone,

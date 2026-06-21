@@ -6,7 +6,7 @@ typedef enum L2_event {
   L2_event_dataToSend = 4,
   L2_event_arqTimeout = 5,
   L2_event_reconfigSrcId = 6,
-  L2_event_dataToSendBuffer = 7
+  // L2_event_dataToSendBuffer = 7
 } L2_event_e;
 
 void L2_event_setEventFlag(L2_event_e event);
