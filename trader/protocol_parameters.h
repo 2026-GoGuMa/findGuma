@@ -18,3 +18,9 @@
 #define AVG_LOC 4312  // 04312, 우편번호는 636***까지 표현 가능
 
 #define L3_MAX_SEQNUM 256
+
+// ================== 서비스 로직 관련 ==================
+#define SWTPOTATO 1
+#define POTATO 2
+#define CORN 3
+static const char* goods_name[4] = {"알 수 없음", "고구마", "감자", "옥수수"};
