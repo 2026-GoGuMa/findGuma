@@ -11,6 +11,12 @@
 
 ---
 
+## 시연 영상
+
+https://github.com/user-attachments/assets/1f771cee-7ac3-4e06-a602-a55d1886134e
+
+---
+
 ## 🗂️ 프로젝트 구조
 
 ```
