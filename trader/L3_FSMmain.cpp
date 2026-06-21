@@ -4,6 +4,7 @@
 #include "L3_timer.h"
 #include "mbed.h"
 #include "protocol_parameters.h"
+#include "../ascii_art.h"
 
 // FSM state
 #define L3STATE_BROADCASTING 0    // coordinator의 WAIT_PAIR 메시지 기다리는 중
@@ -87,14 +88,7 @@ static void L3_action_reset(uint8_t success) {
   rcvd_avg_loc = 0;
   L3_timer_stopTimer();
   L3_event_clearAllEventFlag();
-  pc.printf("거래가 %s\n",
-            success == 1 ? "성사되었습니다!"
-                         : (success == -1 ? "타임아웃 발생으로 실패하였습니다."
-                                          : "무산되었습니다."));
-}
-
-const char* L3_returnTraderRole(uint8_t isSeller) {
-  return (isSeller == 1) ? "판매자" : "구매자";
+  log_box(&pc, "[Trader] Trade %s", success ? "succeeded!" : "failed.");
 }
 
 // --- init / run ---
@@ -106,10 +100,8 @@ void L3_initFSM(uint8_t id, uint8_t cId, uint8_t seller, uint8_t g,
   isSeller = seller;
   goods = g;
   price = p;
-  pc.printf(
-      "[입력 정보 확인]"
-      "> [ID: %u] %s\n> 거래 상품: %u\n> 제시 가격: %u$\n",
-      myId, L3_returnTraderRole(isSeller), goods_name[goods], price);
+  log_box(&pc, "[Trader] id=%u coord=%u isSeller=%u goods=%u price=$%u",
+          myId, coordId, isSeller, goods, price);
 }
 
 void L3_FSMrun(void) {
@@ -140,9 +132,10 @@ void L3_FSMrun(void) {
         if (L3_msg_checkIfWaitPair(msg, size)) {
           debug_if(DBGMSG_L3, "[L3] Wait Pair arrived from %i \n", srcId);
           if (srcId == coordId) {
-            pc.printf("페어를 기다리는 중입니다. . . . . . \n");
-            L3_timer_startTimer(L3_PAIR_TIMEOUT);  // 1번 REC 타이머 동작
-            main_state = L3STATE_WAIT_PRICE_REC;   // 상태 전환
+            log_box(&pc, "Currently waiting for pair. . . . . . ");
+            L3_timer_startTimer(
+                L3_PAIR_TIMEOUT);  // 타이머 시작 (TXN 보내고 REC 기다리는 동안)
+            main_state = L3STATE_WAIT_PRICE_REC;  // 상태 전환
           } else {
             debug_if(DBGMSG_L3, "[L3] Not from coordinator: %i \n", srcId);
           }
@@ -238,7 +231,9 @@ void L3_FSMrun(void) {
 
       // D. 자체 페어 매칭 timeout 난 경우
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        L3_action_reset(-1);
+        log_box(&pc, "No match from coordinator %i... Waiting for pair again", coordId);
+        L3_timer_stopTimer();
+        L3_action_reset(0);
         main_state = L3STATE_BROADCASTING;
       }
       break;
@@ -273,6 +268,8 @@ void L3_FSMrun(void) {
         } else if (L3_msg_checkIfMch(msg, size)) {
           // Event C. MCH PDU가 온 경우
           if (srcId == coordId) {
+            log_box(&pc, "[L3][Trader] Price negotiation failed! Matching fail, broadcasting again. . . . . . ");
+            L3_timer_stopTimer();
             L3_action_reset(0);
             main_state = L3STATE_BROADCASTING;
           }
@@ -307,7 +304,9 @@ void L3_FSMrun(void) {
       }
       // D. timeout 난 경우
       if (L3_event_checkEventFlag(L3_event_timeout)) {
-        L3_action_reset(-1);
+        log_box(&pc, "No match from coordinator %i... Waiting for pair again", coordId);
+        L3_timer_stopTimer();
+        L3_action_reset(0);
         main_state = L3STATE_BROADCASTING;
       }
       break;

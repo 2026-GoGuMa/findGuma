@@ -4,6 +4,7 @@
 #include "mbed.h"
 #include "protocol_parameters.h"
 #include "string.h"
+#include "../ascii_art.h"
 
 // serial port interface
 Serial pc(USBTX, USBRX);
@@ -20,8 +21,7 @@ void onSerialRx(void) {
 }
 
 int main(void) {
-  pc.printf(
-      "------------------ protocol stack starts! --------------------------\n");
+  print_startup_banner(&pc);
 
   // 아이디 세팅
   pc.printf(":: 거래자 ID 설정 : ");

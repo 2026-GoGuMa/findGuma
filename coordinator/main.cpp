@@ -3,6 +3,7 @@
 #include "mbed.h"
 #include "protocol_parameters.h"
 #include "string.h"
+#include "../ascii_art.h"
 
 // serial port interface
 Serial pc(USBTX, USBRX);
@@ -14,12 +15,8 @@ uint8_t input_thisId = L3_COORDINATOR_ID;
 
 // FSM operation implementation ------------------------------------------------
 int main(void) {
-  // initialization
-  pc.printf(
-      "------------------ protocol stack starts! --------------------------\n");
-  // source ID setting
-  pc.printf(":: ID for this node : %d\n", input_thisId);
-  pc.printf(":: Searching for nearby traders...\n");
+  print_startup_banner(&pc);
+  log_box(&pc, "COORDINATOR | ID: %d | Searching for nearby traders...", input_thisId);
 
   // initialize lower layer stacks
   L2_initFSM(input_thisId);
