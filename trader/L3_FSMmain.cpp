@@ -130,7 +130,7 @@ void L3_FSMrun(void) {
         static uint32_t ignore_log_cnt = 0;
 
         // 10만 번 루프 돌 때 1번만 로그 출력 (숫자는 속도에 맞게 조절)
-        if (ignore_log_cnt++ % log_loop_cnt == 0) {
+        if (ignore_log_cnt++ % 100000 == 0) {
           debug_if(DBGMSG_L3,
                    "[L3] msg received in broadcasting state, from: %i\n",
                    srcId);
@@ -158,7 +158,7 @@ void L3_FSMrun(void) {
         static uint32_t ignore_log_cnt = 0;
 
         // 500만 번 루프 돌 때 1번만 로그 출력 (숫자는 속도에 맞게 조절)
-        if (ignore_log_cnt++ % (log_loop_cnt * 5) == 0) {
+        if (ignore_log_cnt++ % 5000000 == 0) {
           debug_if(DBGMSG_L3, "[L3] Broadcasting . . . . , 현재 SEQ_NUM: %i\n",
                    seq_num);
           pc.printf("중개자에게 거래 정보를 전송하는 중입니다. . . . .");
@@ -226,12 +226,16 @@ void L3_FSMrun(void) {
 
           debug_if(DBGMSG_L3, "[L3] coord으로 CNF 전송 완료");
           L3_action_sendPriceCnf(accept_flag);
-        }
 
-        waiting_price_cnf = 0;                // 사용자 대기 플래그 끄기
-        L3_timer_startTimer(L3_REC_TIMEOUT);  // 2번 위치 REC 타이머 작동
-        main_state = L3STATE_WAIT_LOC_REC;
+          waiting_price_cnf = 0;  // 사용자 대기 플래그 끄기
+          L3_event_clearEventFlag(L3_event_userAccept);
+          L3_event_clearEventFlag(L3_event_userReject);
+
+          L3_timer_startTimer(L3_REC_TIMEOUT);  // 2번 위치 REC 타이머 작동
+          main_state = L3STATE_WAIT_LOC_REC;
+        }
       }
+
       // D. 자체 페어 매칭 timeout 난 경우
       if (L3_event_checkEventFlag(L3_event_timeout)) {
         L3_action_reset(-1);
@@ -256,8 +260,11 @@ void L3_FSMrun(void) {
             rcvd_avg_loc = L3_msg_decodeRec(msg);  // 메시지에서 위치 추출
             pc.printf(
                 "거래자와 만날 중간 위치는 우편번호 %05u 입니다. 거래를 "
-                "수락하시겠습니까?\n===========\n"
-                "  > 1=yes          \n  > 0=no           \n===========\n: ",
+                "수락하시겠습니까?"
+                "\n======================\n"
+                " > 수락 = 1\n"
+                " > 거절 = 0\n"
+                "\n======================\n",
                 rcvd_avg_loc);
             waiting_loc_cnf = 1;  // 사용자 입력 대기 중
           } else {
@@ -290,14 +297,13 @@ void L3_FSMrun(void) {
           debug_if(DBGMSG_L3, "[L3] coord으로 CNF 전송 완료");
           L3_action_sendLocCnf(accept_flag);
 
+          waiting_loc_cnf = 0;  // 사용자 대기 플래그 끄기
           L3_event_clearEventFlag(L3_event_userAccept);
           L3_event_clearEventFlag(L3_event_userReject);
+
+          L3_timer_startTimer(L3_MCH_TIMEOUT);  // 3번 MCH 대기 타이머 동작
+          main_state = L3STATE_WAIT_LOC_MCH;
         }
-
-        waiting_loc_cnf = 0;                  // 사용자 대기 플래그 끄기
-        L3_timer_startTimer(L3_MCH_TIMEOUT);  // 3번 MCH 대기 타이머 동작
-
-        main_state = L3STATE_WAIT_LOC_MCH;
       }
       // D. timeout 난 경우
       if (L3_event_checkEventFlag(L3_event_timeout)) {

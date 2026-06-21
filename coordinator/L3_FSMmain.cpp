@@ -238,11 +238,11 @@ void L3_FSMrun(void) {
           static uint32_t ignore_log_cnt = 0;
 
           // {log_loop_cnt}번 루프 돌 때 1번만 로그 출력
-          if (ignore_log_cnt++ % log_loop_cnt == 0)
-            debug_if(
-                DBGMSG_L3,
-                "[L3] duplicated TXN from trader %i ignored in WAIT_PAIR\n",
-                pendingTxn.id);
+          // if (ignore_log_cnt++ % log_loop_cnt == 0)
+          //   debug_if(
+          //       DBGMSG_L3,
+          //       "[L3] duplicated TXN from trader %i ignored in WAIT_PAIR\n",
+          //       pendingTxn.id);
           break;
         }
 
