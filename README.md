@@ -11,6 +11,17 @@
 
 ---
 
+## 시연 영상
+
+https://github.com/user-attachments/assets/1f771cee-7ac3-4e06-a602-a55d1886134e
+
+---
+
+## 함께하는 우리
+<img width="681" height="846" alt="image" src="https://github.com/user-attachments/assets/fa9047f5-c344-4bf0-99aa-acce62dd146f" />
+
+---
+
 ## 🗂️ 프로젝트 구조
 
 ```

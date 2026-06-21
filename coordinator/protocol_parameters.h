@@ -20,3 +20,9 @@
 #define MAX_TRADERID 1024
 
 #define L3_MAX_SEQNUM 256
+
+// ================== 서비스 로직 관련 ==================
+#define SWTPOTATO 1
+#define POTATO 2
+#define CORN 3
+static const char* goods_name[4] = {"알 수 없음", "고구마", "감자", "옥수수"};
